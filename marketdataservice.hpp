@@ -2,7 +2,7 @@
  * marketdataservice.hpp
  * Defines the data types and Service for order book market data.
  *
- * @author Breman Thuraisingham
+ * @author Boyu Yang
  */
 #ifndef MARKET_DATA_SERVICE_HPP
 #define MARKET_DATA_SERVICE_HPP

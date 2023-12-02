@@ -2,7 +2,7 @@
  * soa.hpp
  * Definition of our Service Oriented Architecture (SOA) Service base class
  *
- * @author Breman Thuraisingham
+ * @author Boyu Yang
  */
 
 #ifndef SOA_HPP
@@ -13,7 +13,7 @@
 using namespace std;
 
 /**
- * Definition of a generic base class ServiceListener to listen to add, update, and remve
+ * Definition of a generic base class ServiceListener to listen to add, update, and remove
  * events on a Service. This listener should be registered on a Service for the Service
  * to notify all listeners for these events.
  */

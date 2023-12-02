@@ -2,7 +2,7 @@
  * positionservice.hpp
  * Defines the data types and Service for positions.
  *
- * @author Breman Thuraisingham
+ * @author Boyu Yang
  */
 #ifndef POSITION_SERVICE_HPP
 #define POSITION_SERVICE_HPP

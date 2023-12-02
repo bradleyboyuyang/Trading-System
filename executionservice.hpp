@@ -2,7 +2,7 @@
  * executionservice.hpp
  * Defines the data types and Service for executions.
  *
- * @author Breman Thuraisingham
+ * @author Boyu Yang
  */
 #ifndef EXECUTION_SERVICE_HPP
 #define EXECUTION_SERVICE_HPP

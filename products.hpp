@@ -2,7 +2,7 @@
  * products.hpp
  * Defines Bond and Interest Rate Swap products.
  *
- * @author Breman Thuraisingham
+ * @author Boyu Yang
  */
 #ifndef PRODUCTS_HPP
 #define PRODUCTS_HPP
@@ -26,6 +26,7 @@ class Product
 public:
 
   // ctor for a prduct
+  Product() = default;
   Product(string _productId, ProductType _productType);
 
   // Get the product identifier
@@ -209,7 +210,7 @@ BondIdType Bond::GetBondIdType() const
 
 ostream& operator<<(ostream &output, const Bond &bond)
 {
-  output << bond.ticker << " " << bond.coupon << " " << bond.GetMaturityDate();
+  output << "Ticker " << bond.ticker << " Coupon " << bond.coupon << " Maturity Date " << bond.GetMaturityDate();
   return output;
 }
 

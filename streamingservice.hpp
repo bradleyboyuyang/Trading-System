@@ -2,7 +2,7 @@
  * streamingservice.hpp
  * Defines the data types and Service for price streams.
  *
- * @author Breman Thuraisingham
+ * @author Boyu Yang
  */
 #ifndef STREAMING_SERVICE_HPP
 #define STREAMING_SERVICE_HPP

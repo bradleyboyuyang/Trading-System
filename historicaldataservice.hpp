@@ -2,7 +2,7 @@
  * historicaldataservice.hpp
  * historicaldataservice.hpp
  *
- * @author Breman Thuraisingham
+ * @author Boyu Yang
  * Defines the data types and Service for historical data.
  *
  * @author Breman Thuraisingham
