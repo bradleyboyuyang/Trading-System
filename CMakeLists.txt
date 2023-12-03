@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Find the Boost library
+set(CMAKE_PREFIX_PATH "D:/boost_1_82_0")
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
