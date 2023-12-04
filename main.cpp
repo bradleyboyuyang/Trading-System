@@ -31,18 +31,23 @@ using namespace std;
 
 
 int main(int, char**){
+	// price data path
+	const string pricePath = "../data/prices.txt";
+	// market data path
+	const string marketDataPath = "../data/marketdata.txt";
+
 
 	// generate price and orderbook data
     log(LogLevel::INFO, "Generating price and orderbook data...");
-    std::vector<std::string> bonds = {"9128283H1", "9128283L2", "912828M80", "9128283J7", "9128283F5", "912810RZ3"};
-    genOrderBook(bonds, "../data/prices.txt", "../data/marketdata.txt", 42);
+    std::vector<std::string> bonds = {"9128283H1", "9128283L2", "912828M80", "9128283J7", "912810TW8", "9128283F5", "912810RZ3"};
+    genOrderBook(bonds, pricePath, marketDataPath, 42);
 
     // start trading system
     log(LogLevel::INFO, "Trading System starts running...");
 
     // create services
     log(LogLevel::INFO, "Creating trading services...");
-	// PricingService<Bond> pricingService;
+	PricingService<Bond> pricingService;
 	// TradeBookingService<Bond> tradeBookingService;
 	// PositionService<Bond> positionService;
 	// RiskService<Bond> riskService;
@@ -53,6 +58,8 @@ int main(int, char**){
 	// ExecutionService<Bond> executionService;
 	// StreamingService<Bond> streamingService;
 	// InquiryService<Bond> inquiryService;
+
+	log(LogLevel::INFO, "Trading services created");
 
 	// set output precision
 	cout << fixed << setprecision(6);
@@ -68,5 +75,22 @@ int main(int, char**){
 
 	cout << "converted price: " << convertPrice(100.796875) << endl;
 
+	// test bond pricing service
+    log(LogLevel::INFO, "Processing price data...");
+	pricingService.GetConnector()->Subscribe(pricePath);
+	cout << pricingService.GetData("9128283H1") << endl;
+	cout << pricingService.GetData("9128283L2") << endl;
+	cout << pricingService.GetData("912828M80") << endl;
+	cout << pricingService.GetData("9128283J7") << endl;
+	cout << pricingService.GetData("9128283F5") << endl;
+	cout << pricingService.GetData("912810TW8") << endl;
+	cout << pricingService.GetData("912810RZ3") << endl;
+	log(LogLevel::INFO, "Price data processed");
+
+	// test bond market data service
+	log(LogLevel::INFO, "Processing market data...");
+	// marketDataService.GetConnector()->Subscribe(marketDataPath);
+	log(LogLevel::INFO, "Market data processed");
+	
 
 }

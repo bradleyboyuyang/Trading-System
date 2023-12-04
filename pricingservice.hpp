@@ -4,13 +4,14 @@
  *
  * @author Boyu Yang
  */
-#ifndef PRICING_SERVICE_HPP
-#define PRICING_SERVICE_HPP
+#ifndef PRICINGservice_HPP
+#define PRICINGservice_HPP
 
 #include <string>
 #include <map>
 #include <fstream>
 #include "soa.hpp"
+#include "utils.hpp"
 
 /**
  * A price object consisting of mid and bid/offer spread.
@@ -21,10 +22,11 @@ class Price
 {
 
 public:
+  // default ctor (needed for map data structure later)
+  Price() = default;
 
   // ctor for a price
-  Price() = default;
-  Price(const T &_product, double _mid, double _bidOfferSpread);
+  Price(const T& _product, double _mid, double _bidOfferSpread);
 
   // Get the product
   const T& GetProduct() const;
@@ -40,14 +42,14 @@ public:
   friend ostream& operator<<(ostream& os, const Price<U>& price);
 
 private:
-  const T& product;
+  T product;
   double mid;
   double bidOfferSpread;
 
 };
 
 template<typename T>
-Price<T>::Price(const T &_product, double _mid, double _bidOfferSpread) 
+Price<T>::Price(const T& _product, double _mid, double _bidOfferSpread) 
 : product(_product), mid(_mid), bidOfferSpread(_bidOfferSpread)
 {
 }
@@ -73,15 +75,13 @@ double Price<T>::GetBidOfferSpread() const
 template<typename T>
 ostream& operator<<(ostream& os, const Price<T>& price)
 {
-  os << "Price Object (Product: " << price.product << ", Mid Price: " << price.mid << ", Bid/Offer Spread: " << price.bidOfferSpread << ")" << endl;
+  os << "Price Object (Product: " << price.product << ", Mid Price: " << price.mid << ", Spread: " << price.bidOfferSpread << ")" << endl;
   return os;
 }
-
 
 // forward declaration of PricingConnector
 template<typename T>
 class PricingConnector;
-
 
 /**
  * Pricing Service managing mid prices and bid/offers.
@@ -93,12 +93,12 @@ class PricingService : public Service<string, Price<T>>
 {
 private:
   map<string, Price<T>> priceMap; // store price data keyed by product identifier
-  PricingConnector<T>* connector; // connector to interact with external data
   vector<ServiceListener<Price<T>>*> listeners; // list of listeners to this service
+  PricingConnector<T>* connector; // connector related to this server
   
 public:
   // ctor
-  PricingService() = default;
+  PricingService();
   // dtor
   ~PricingService() = default;
 
@@ -115,8 +115,19 @@ public:
 
   // Get all listeners on the Service.
   const vector< ServiceListener<Price<T>>* >& GetListeners() const override;
+
+  // Get the connector
+  PricingConnector<T>* GetConnector();
+
 };
 
+template <typename T>
+PricingService<T>::PricingService()
+{
+  priceMap = map<string, Price<T>>();
+  listeners = vector<ServiceListener<Price<T>>*>();
+  connector = new PricingConnector<T>(this); // connector related to this server
+}
 
 
 template<typename T>
@@ -128,12 +139,15 @@ Price<T>& PricingService<T>::GetData(string key)
 template<typename T>
 void PricingService<T>::OnMessage(Price<T> &data)
 {
-  string key = data.GetProduct().GetProductId();
-  priceMap[key] = data;
-  for(auto& listener : listeners)
-  {
-    listener->ProcessAdd(data);
-  }
+    // flow data
+    string key = data.GetProduct().GetProductId();
+    // update the price map
+    if (priceMap.find(key) != priceMap.end()) {priceMap.erase(key);}
+    priceMap.insert(pair<string, Price<Bond> > (key, data));
+    // flow the data to listeners
+    for (auto& l : listeners) {
+        l -> ProcessAdd(data);
+    }
 }
 
 template<typename T>
@@ -148,72 +162,92 @@ const vector< ServiceListener<Price<T>>* >& PricingService<T>::GetListeners() co
   return listeners;
 }
 
-
+template<typename T>
+PricingConnector<T>* PricingService<T>::GetConnector()
+{
+  return connector;
+}
 
 
 /**
- * Connector to a pricing source.
+ * PricingConnector: publish data to pricing service.
  * Type T is the product type.
  */
 template<typename T>
 class PricingConnector : public Connector<Price<T>>
 {
 private:
-  PricingService<T>* service; // service to publish data to
-  string file; // file name to read data from
-  ifstream data; // data stream
+  PricingService<T>* service; 
 
 public:
   // ctor
-  PricingConnector(PricingService<T>* _service, string _file);
+  PricingConnector(PricingService<T>* _service);
   // dtor
-  ~PricingConnector();
+  ~PricingConnector()=default;
 
   // Publish data to the Connector
+  // If subscribe-only, then this does nothing
   void Publish(Price<T> &data) override;
 
-  // read data from file
-  void ReadData();
+  // Subscribe data
+  void Subscribe(const string& dataFile);
+
 };
 
-
 template<typename T>
-PricingConnector<T>::PricingConnector(PricingService<T>* _service, string _file)
-: service(_service), file(_file)
+PricingConnector<T>::PricingConnector(PricingService<T>* _service)
+: service(_service)
 {
-  data.open(file);
-  if(!data.is_open())
-  {
-    throw runtime_error("Cannot open file " + file);
-  }
 }
 
-template<typename T>
-PricingConnector<T>::~PricingConnector()
-{
-  data.close();
-}
-
-template<typename T>
+// The price connector is subscribe-only, hence does nothing
+template <typename T>
 void PricingConnector<T>::Publish(Price<T> &data)
 {
-  service->OnMessage(data);
 }
 
 template<typename T>
-void PricingConnector<T>::ReadData()
+void PricingConnector<T>::Subscribe(const string& dataFile)
 {
-  string line;
-  while(getline(data, line))
+  // read data from file
+  ifstream data(dataFile.c_str());
+  if (data.is_open())
   {
-    stringstream ss(line);
-    string productId;
-    double mid, bidOfferSpread;
-    ss >> productId >> mid >> bidOfferSpread;
-    Price<T> price(T(productId), mid, bidOfferSpread);
-    Publish(price);
+    string line;
+    // skip the first line
+    getline(data, line);
+    while (getline(data, line))
+    {
+      // split the line into a vector of strings
+      vector<string> lineData;
+      stringstream ss(line); // turn the string into a stream
+      string word;
+      while (getline(ss, word, ','))
+      {
+        lineData.push_back(word);
+      }
+      string timestamp = lineData[0];
+      string productId = lineData[1];
+      double bid = convertPrice(lineData[2]);
+      double ask = convertPrice(lineData[3]);
+      double spread = stod(lineData[4]);
+      double mid = (bid + ask) / 2.0;
+      // create product object based on product id
+      T product = getProduct<T>(productId);
+      // create price object based on product, mid price and bid/offer spread
+      Price<T> price(product, mid, spread);
+      // publish price object to the service
+      service->OnMessage(price);
+    }
+  }
+  else
+  {
+    // throw an error if the file is not open
+    cout << std::make_error_condition(std::errc::no_such_file_or_directory).message() << endl;
   }
 }
+
+
 
 
 #endif

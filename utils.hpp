@@ -89,17 +89,30 @@ void log(LogLevel level, const string& message) {
     cout << color << getTime() << " [" << levelStr << "] " << message << RESET << endl;
 }
 
-// create Bond objects (2Y, 3Y, 5Y, 7Y, 10Y, 20Y, 30Y) from CUSIP
-Bond createBond(string cusip)
-{
-	Bond bond;
-	if (cusip == "9128283H1") bond = Bond("9128283H1", CUSIP, "US2Y", 0.01750, from_string("2019/11/30"));
-	if (cusip == "9128283L2") bond = Bond("9128283L2", CUSIP, "US3Y", 0.01875, from_string("2020/12/15"));
-	if (cusip == "912828M80") bond = Bond("912828M80", CUSIP, "US5Y", 0.02000, from_string("2022/11/30"));
-	if (cusip == "9128283J7") bond = Bond("9128283J7", CUSIP, "US7Y", 0.02125, from_string("2024/11/30"));
-	if (cusip == "9128283F5") bond = Bond("9128283F5", CUSIP, "US10Y", 0.02250, from_string("2027/12/15"));
-	if (cusip == "912810RZ3") bond = Bond("912810RZ3", CUSIP, "US30Y", 0.02750, from_string("2047/12/15"));
-	return bond;
+// get Product object from identifier
+// Define a type for a function that takes no arguments and returns a T
+template <typename T>
+using ProductConstructor = std::function<T()>;
+
+// Define a map from CUSIPs to product constructors
+template <typename T>
+std::map<std::string, ProductConstructor<T>> productConstructors = {
+    {"9128283H1", []() { return Bond("9128283H1", CUSIP, "US2Y", 0.01750, from_string("2019/11/30")); }},
+    {"9128283L2", []() { return Bond("9128283L2", CUSIP, "US3Y", 0.01875, from_string("2020/12/15")); }},
+    {"912828M80", []() { return Bond("912828M80", CUSIP, "US5Y", 0.02000, from_string("2022/11/30")); }},
+    {"9128283J7", []() { return Bond("9128283J7", CUSIP, "US7Y", 0.02125, from_string("2024/11/30")); }},
+    {"9128283F5", []() { return Bond("9128283F5", CUSIP, "US10Y", 0.02250, from_string("2027/12/15")); }},
+    {"912810TW8", []() { return Bond("912810TW8", CUSIP, "US20Y", 0.02500, from_string("2037/12/15")); }},
+    {"912810RZ3", []() { return Bond("912810RZ3", CUSIP, "US30Y", 0.02750, from_string("2047/12/15")); }},
+};
+
+template <typename T>
+T getProduct(const std::string& cusip) {
+    auto it = productConstructors<T>.find(cusip);
+    if (it == productConstructors<T>.end()) {
+        throw std::invalid_argument("Unknown CUSIP: " + cusip);
+    }
+    return it->second();
 }
 
 
@@ -137,8 +150,8 @@ string convertPrice(double price) {
 
 // generate oscillating spread between 1/64 and 1/128
 double genRandomSpread(std::mt19937& gen) {
-    std::uniform_int_distribution<> dis(2, 4); 
-    return static_cast<double>(dis(gen)) / 256.0;
+    std::uniform_real_distribution<double> dist(1.0/128.0, 1.0/64.0);
+    return dist(gen);
 }
 
 /**
@@ -149,13 +162,13 @@ void genOrderBook(const std::vector<std::string>& bonds, const std::string& pric
     std::ofstream pFile(priceFile);
     std::ofstream oFile(orderbookFile);
     std::mt19937 gen(seed);
-    std::uniform_int_distribution<> ms_dist(1, 9); // simulate milliseconds increments
+    std::uniform_int_distribution<> ms_dist(1, 20); // simulate milliseconds increments
 
     // price file format: Timestamp, CUSIP, Bid, Ask
-    pFile << "Timestamp,CUSIP,Bid,Ask\n";
-    
+    pFile << "Timestamp,CUSIP,Bid,Ask" << endl;
+
     // orderbook file format: Timestamp, CUSIP, Bid1, BidSize1, Ask1, AskSize1, Bid2, BidSize2, Ask2, AskSize2, Bid3, BidSize3, Ask3, AskSize3, Bid4, BidSize4, Ask4, AskSize4, Bid5, BidSize5, Ask5, AskSize5
-    oFile << "Timestamp,CUSIP,Bid1,BidSize1,Ask1,AskSize1,Bid2,BidSize2,Ask2,AskSize2,Bid3,BidSize3,Ask3,AskSize3,Bid4,BidSize4,Ask4,AskSize4,Bid5,BidSize5,Ask5,AskSize5\n";
+    oFile << "Timestamp,CUSIP,Bid1,BidSize1,Ask1,AskSize1,Bid2,BidSize2,Ask2,AskSize2,Bid3,BidSize3,Ask3,AskSize3,Bid4,BidSize4,Ask4,AskSize4,Bid5,BidSize5,Ask5,AskSize5" << endl;
 
     for (const auto& bond : bonds) {
         double midPrice = 99.00;
@@ -173,10 +186,9 @@ void genOrderBook(const std::vector<std::string>& bonds, const std::string& pric
             curTime += std::chrono::milliseconds(ms_dist(gen));
             timestamp = getTime(curTime);
 
-            double randomBid = midPrice - randomSpread / 2;
-            double randomAsk = midPrice + randomSpread / 2;
-
-            pFile << timestamp << "," << bond << "," << convertPrice(randomBid) << "," << convertPrice(randomAsk) << "\n";
+            double randomBid = midPrice - randomSpread / 2.0;
+            double randomAsk = midPrice + randomSpread / 2.0;
+            pFile << timestamp << "," << bond << "," << convertPrice(randomBid) << "," << convertPrice(randomAsk) << "," << randomSpread << endl;
 
             // generate order book data
             oFile << timestamp << "," << bond;
@@ -186,7 +198,7 @@ void genOrderBook(const std::vector<std::string>& bonds, const std::string& pric
                 int size = level * 1'000'000;
                 oFile << "," << convertPrice(fixBid) << "," << size << "," << convertPrice(fixAsk) << "," << size;
             }
-            oFile << "\n";
+            oFile << endl;
 
             // oscillate mid price
             if (priceIncreasing) {

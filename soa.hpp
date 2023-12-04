@@ -9,6 +9,7 @@
 #define SOA_HPP
 
 #include <vector>
+#include <fstream>
 
 using namespace std;
 

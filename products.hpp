@@ -29,7 +29,7 @@ public:
   // Product ctor
   Product(string _productId, ProductType _productType);
 
-  // Retrurn the product identifier
+  // Return the product identifier
   string GetProductId() const;
 
   // Return the Product Type for this Product
