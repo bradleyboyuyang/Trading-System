@@ -32,7 +32,7 @@ using namespace std;
 
 
 // get the system time and return in milliseconds format (e.g. 2023-12-23 22:42:44.260)
-std::string getTime() {
+string getTime() {
     auto now = std::chrono::system_clock::now();
     std::time_t now_c = std::chrono::system_clock::to_time_t(now);
 
@@ -40,7 +40,7 @@ std::string getTime() {
     std::tm now_tm = *std::localtime(&now_c);
 
     // use stringstream to format the time
-    std::stringstream ss;
+    stringstream ss;
     ss << std::put_time(&now_tm, "%Y-%m-%d %H:%M:%S");
 
     // get the milliseconds separately
@@ -51,10 +51,10 @@ std::string getTime() {
 }
 
 // change time point format to string 
-std::string getTime(std::chrono::system_clock::time_point now) {
+string getTime(std::chrono::system_clock::time_point now) {
     std::time_t now_c = std::chrono::system_clock::to_time_t(now);
     std::tm now_tm = *std::localtime(&now_c);
-    std::stringstream ss;
+    stringstream ss;
     ss << std::put_time(&now_tm, "%Y-%m-%d %H:%M:%S");
     auto milli = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
     ss << '.' << std::setfill('0') << std::setw(3) << milli.count();
@@ -96,7 +96,7 @@ using ProductConstructor = std::function<T()>;
 
 // Define a map from CUSIPs to product constructors
 template <typename T>
-std::map<std::string, ProductConstructor<T>> productConstructors = {
+std::map<string, ProductConstructor<T>> productConstructors = {
     {"9128283H1", []() { return Bond("9128283H1", CUSIP, "US2Y", 0.01750, from_string("2019/11/30")); }},
     {"9128283L2", []() { return Bond("9128283L2", CUSIP, "US3Y", 0.01875, from_string("2020/12/15")); }},
     {"912828M80", []() { return Bond("912828M80", CUSIP, "US5Y", 0.02000, from_string("2022/11/30")); }},
@@ -107,7 +107,7 @@ std::map<std::string, ProductConstructor<T>> productConstructors = {
 };
 
 template <typename T>
-T getProductObject(const std::string& cusip) {
+T getProductObject(const string& cusip) {
     auto it = productConstructors<T>.find(cusip);
     if (it == productConstructors<T>.end()) {
         throw std::invalid_argument("Unknown CUSIP: " + cusip);
@@ -140,7 +140,7 @@ double calculate_pv01(double face_value, double coupon_rate, double yield_rate, 
 
 // Define a map from CUSIPs to PV01
 // Current yield for 2,3,5,7,10,20,30 year US treasury bonds: 0.0464, 0.0440, 0.0412, 0.043, 0.0428, 0.0461, 0.0443
-std::map<std::string, double> pv01 = {
+std::map<string, double> pv01 = {
     {"9128283H1", calculate_pv01(1000, 0.01750, 0.0464, 2, 2)},
     {"9128283L2", calculate_pv01(1000, 0.01875, 0.0440, 3, 2)},
     {"912828M80", calculate_pv01(1000, 0.02000, 0.0412, 5, 2)},
@@ -151,7 +151,7 @@ std::map<std::string, double> pv01 = {
 };
 
 // Get PV01 from CUSIP
-double getPV01(const std::string& cusip) {
+double getPV01(const string& cusip) {
     auto it = pv01.find(cusip);
     if (it == pv01.end()) {
         throw std::invalid_argument("Unknown CUSIP: " + cusip);
@@ -198,10 +198,10 @@ double genRandomSpread(std::mt19937& gen) {
 }
 
 /**
- * 1. Generate bond prices that oscillate between 99 and 101 and write to prices.txt
+ * 1. Generate prices that oscillate between 99 and 101 and write to prices.txt
  * 2. Generate order book data with fivel levels of bids and offers and write to marketdata.txt
  */
-void genOrderBook(const std::vector<std::string>& bonds, const std::string& priceFile, const std::string& orderbookFile, long long seed) {
+void genOrderBook(const vector<string>& products, const string& priceFile, const string& orderbookFile, long long seed) {
     std::ofstream pFile(priceFile);
     std::ofstream oFile(orderbookFile);
     std::mt19937 gen(seed);
@@ -213,7 +213,7 @@ void genOrderBook(const std::vector<std::string>& bonds, const std::string& pric
     // orderbook file format: Timestamp, CUSIP, Bid1, BidSize1, Ask1, AskSize1, Bid2, BidSize2, Ask2, AskSize2, Bid3, BidSize3, Ask3, AskSize3, Bid4, BidSize4, Ask4, AskSize4, Bid5, BidSize5, Ask5, AskSize5
     oFile << "Timestamp,CUSIP,Bid1,BidSize1,Ask1,AskSize1,Bid2,BidSize2,Ask2,AskSize2,Bid3,BidSize3,Ask3,AskSize3,Bid4,BidSize4,Ask4,AskSize4,Bid5,BidSize5,Ask5,AskSize5" << endl;
 
-    for (const auto& bond : bonds) {
+    for (const auto& product : products) {
         double midPrice = 99.00;
         bool priceIncreasing = true;
         bool spreadIncreasing = true;
@@ -231,10 +231,10 @@ void genOrderBook(const std::vector<std::string>& bonds, const std::string& pric
 
             double randomBid = midPrice - randomSpread / 2.0;
             double randomAsk = midPrice + randomSpread / 2.0;
-            pFile << timestamp << "," << bond << "," << convertPrice(randomBid) << "," << convertPrice(randomAsk) << "," << randomSpread << endl;
+            pFile << timestamp << "," << product << "," << convertPrice(randomBid) << "," << convertPrice(randomAsk) << "," << randomSpread << endl;
 
             // generate order book data
-            oFile << timestamp << "," << bond;
+            oFile << timestamp << "," << product;
             for (int level=1; level<=5; ++level){
                 double fixBid = midPrice - fixSpread * level / 2.0;
                 double fixAsk = midPrice + fixSpread * level / 2.0;
@@ -273,6 +273,39 @@ void genOrderBook(const std::vector<std::string>& bonds, const std::string& pric
 
     pFile.close();
     oFile.close();
+}
+
+
+void genTrades(const vector<string>& products, const string& tradeFile, long long seed) {
+    vector<string> books = {"TRSY1", "TRSY2", "TRSY3"};
+    vector<long> quantities = {1000000, 2000000, 3000000, 4000000, 5000000};
+    std::ofstream tFile(tradeFile);
+    std::mt19937 gen(seed);
+
+    for (const auto& product : products) {
+        for (int i = 0; i < 10; ++i) {
+            string side = (i % 2 == 0) ? "BUY" : "SELL";
+            // generate a seven digit random trade id with number and letters
+            string tradeId = "";
+            for (int j = 0; j < 7; ++j) {
+                int random = rand() % 36;
+                if (random < 10) {
+                    tradeId += to_string(random);
+                } else {
+                    tradeId += static_cast<char>('A' + random - 10);
+                }
+            }
+            // generate random buy price 99-100 and random sell price 100-101 with given seed
+            std::uniform_real_distribution<double> dist(side == "BUY" ? 99.0 : 100.0, side == "BUY" ? 100.0 : 101.0);
+            double price = dist(gen);
+            long quantity = quantities[i % quantities.size()];
+            string book = books[i % books.size()];
+
+        tFile << product << "," << tradeId << "," << convertPrice(price) << "," << book << "," << quantity << "," << side << endl;
+        }
+    }
+
+    tFile.close();
 }
 
 

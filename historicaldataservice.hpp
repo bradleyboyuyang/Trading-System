@@ -4,11 +4,21 @@
  *
  * @author Boyu Yang
  * Defines the data types and Service for historical data.
- *
- * @author Breman Thuraisingham
  */
 #ifndef HISTORICAL_DATA_SERVICE_HPP
 #define HISTORICAL_DATA_SERVICE_HPP
+
+
+#include "soa.hpp"
+
+enum ServiceType {POSITION, RISK, EXECUTION, STREAMING, INQUIRY};
+
+
+// pre declaration
+template<typename T>
+class HistoricalDataConnector;
+
+
 
 /**
  * Service for processing and persisting historical data to a persistent store.
@@ -20,6 +30,11 @@ class HistoricalDataService : Service<string,T>
 {
 
 public:
+  // ctor and dtor
+  HistoricalDataService();
+  ~HistoricalDataService()=default;
+  HistoricalDataService(ServiceType _type);  
+
 
   // Persist data to a store
   void PersistData(string persistKey, const T& data) = 0;

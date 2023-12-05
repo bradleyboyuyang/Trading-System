@@ -35,12 +35,16 @@ int main(int, char**){
 	const string pricePath = "../data/prices.txt";
 	// market data path
 	const string marketDataPath = "../data/marketdata.txt";
+	// trade data path
+	const string tradePath = "../data/trades.txt";
 
 
 	// generate price and orderbook data
     log(LogLevel::INFO, "Generating price and orderbook data...");
-    std::vector<std::string> bonds = {"9128283H1", "9128283L2", "912828M80", "9128283J7", "9128283F5", "912810TW8", "912810RZ3"};
+    vector<string> bonds = {"9128283H1", "9128283L2", "912828M80", "9128283J7", "9128283F5", "912810TW8", "912810RZ3"};
     genOrderBook(bonds, pricePath, marketDataPath, 42);
+	// generate trade data
+	genTrades(bonds, tradePath, 42);
 
     // start trading system
     log(LogLevel::INFO, "Trading System starts running...");
