@@ -44,8 +44,8 @@ std::string getTime() {
     ss << std::put_time(&now_tm, "%Y-%m-%d %H:%M:%S");
 
     // get the milliseconds separately
-    auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-    ss << '.' << std::setfill('0') << std::setw(3) << milliseconds.count();
+    auto milli = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    ss << '.' << std::setfill('0') << std::setw(3) << milli.count();
 
     return ss.str();
 }
@@ -56,8 +56,8 @@ std::string getTime(std::chrono::system_clock::time_point now) {
     std::tm now_tm = *std::localtime(&now_c);
     std::stringstream ss;
     ss << std::put_time(&now_tm, "%Y-%m-%d %H:%M:%S");
-    auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-    ss << '.' << std::setfill('0') << std::setw(3) << milliseconds.count();
+    auto milli = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    ss << '.' << std::setfill('0') << std::setw(3) << milli.count();
     return ss.str();
 }
 
@@ -107,7 +107,7 @@ std::map<std::string, ProductConstructor<T>> productConstructors = {
 };
 
 template <typename T>
-T getProduct(const std::string& cusip) {
+T getProductObject(const std::string& cusip) {
     auto it = productConstructors<T>.find(cusip);
     if (it == productConstructors<T>.end()) {
         throw std::invalid_argument("Unknown CUSIP: " + cusip);
@@ -115,6 +115,49 @@ T getProduct(const std::string& cusip) {
     return it->second();
 }
 
+
+// function to calculate PV01
+double calculate_pv01(double face_value, double coupon_rate, double yield_rate, int years_to_maturity, int frequency) {
+    double coupon = face_value * coupon_rate / frequency;
+    double pv01 = 0.0;
+    for (int t = 1; t <= years_to_maturity * frequency; ++t) {
+        double discount_factor = 1.0 / pow(1.0 + yield_rate / frequency, t);
+        pv01 += coupon * discount_factor;
+    }
+    pv01 += face_value / pow(1.0 + yield_rate / frequency, years_to_maturity * frequency);
+    double pv01_initial = pv01;
+    yield_rate += 0.0001;
+    pv01 = 0.0;
+    for (int t = 1; t <= years_to_maturity * frequency; ++t) {
+        double discount_factor = 1.0 / pow(1.0 + yield_rate / frequency, t);
+        pv01 += coupon * discount_factor;
+    }
+    pv01 += face_value / pow(1.0 + yield_rate / frequency, years_to_maturity * frequency);
+    double pv01_change = pv01_initial - pv01;
+    return pv01_change;
+}
+
+
+// Define a map from CUSIPs to PV01
+// Current yield for 2,3,5,7,10,20,30 year US treasury bonds: 0.0464, 0.0440, 0.0412, 0.043, 0.0428, 0.0461, 0.0443
+std::map<std::string, double> pv01 = {
+    {"9128283H1", calculate_pv01(1000, 0.01750, 0.0464, 2, 2)},
+    {"9128283L2", calculate_pv01(1000, 0.01875, 0.0440, 3, 2)},
+    {"912828M80", calculate_pv01(1000, 0.02000, 0.0412, 5, 2)},
+    {"9128283J7", calculate_pv01(1000, 0.02125, 0.0430, 7, 2)},
+    {"9128283F5", calculate_pv01(1000, 0.02250, 0.0428, 10, 2)},
+    {"912810TW8", calculate_pv01(1000, 0.02500, 0.0461, 20, 2)},
+    {"912810RZ3", calculate_pv01(1000, 0.02750, 0.0443, 30, 2)},
+};
+
+// Get PV01 from CUSIP
+double getPV01(const std::string& cusip) {
+    auto it = pv01.find(cusip);
+    if (it == pv01.end()) {
+        throw std::invalid_argument("Unknown CUSIP: " + cusip);
+    }
+    return it->second;
+}
 
 // change US treasury prices from fractional notation to decimal notation
 double convertPrice(const string& priceStr) {

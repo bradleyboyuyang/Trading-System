@@ -39,7 +39,7 @@ int main(int, char**){
 
 	// generate price and orderbook data
     log(LogLevel::INFO, "Generating price and orderbook data...");
-    std::vector<std::string> bonds = {"9128283H1", "9128283L2", "912828M80", "9128283J7", "912810TW8", "9128283F5", "912810RZ3"};
+    std::vector<std::string> bonds = {"9128283H1", "9128283L2", "912828M80", "9128283J7", "9128283F5", "912810TW8", "912810RZ3"};
     genOrderBook(bonds, pricePath, marketDataPath, 42);
 
     // start trading system
@@ -51,7 +51,7 @@ int main(int, char**){
 	// TradeBookingService<Bond> tradeBookingService;
 	// PositionService<Bond> positionService;
 	// RiskService<Bond> riskService;
-	// MarketDataService<Bond> marketDataService;
+	MarketDataService<Bond> marketDataService;
 	// AlgoExecutionService<Bond> algoExecutionService;
 	// AlgoStreamingService<Bond> algoStreamingService;
 	// GUIService<Bond> guiService;
@@ -89,7 +89,7 @@ int main(int, char**){
 
 	// test bond market data service
 	log(LogLevel::INFO, "Processing market data...");
-	// marketDataService.GetConnector()->Subscribe(marketDataPath);
+	marketDataService.GetConnector()->Subscribe(marketDataPath);
 	log(LogLevel::INFO, "Market data processed");
 	
 

@@ -124,8 +124,6 @@ public:
 template <typename T>
 PricingService<T>::PricingService()
 {
-  priceMap = map<string, Price<T>>();
-  listeners = vector<ServiceListener<Price<T>>*>();
   connector = new PricingConnector<T>(this); // connector related to this server
 }
 
@@ -144,6 +142,7 @@ void PricingService<T>::OnMessage(Price<T> &data)
     // update the price map
     if (priceMap.find(key) != priceMap.end()) {priceMap.erase(key);}
     priceMap.insert(pair<string, Price<Bond> > (key, data));
+
     // flow the data to listeners
     for (auto& l : listeners) {
         l -> ProcessAdd(data);
@@ -203,7 +202,7 @@ PricingConnector<T>::PricingConnector(PricingService<T>* _service)
 // The price connector is subscribe-only, hence does nothing
 template <typename T>
 void PricingConnector<T>::Publish(Price<T> &data)
-{
+{ 
 }
 
 template<typename T>
@@ -233,7 +232,7 @@ void PricingConnector<T>::Subscribe(const string& dataFile)
       double spread = stod(lineData[4]);
       double mid = (bid + ask) / 2.0;
       // create product object based on product id
-      T product = getProduct<T>(productId);
+      T product = getProductObject<T>(productId);
       // create price object based on product, mid price and bid/offer spread
       Price<T> price(product, mid, spread);
       // publish price object to the service
