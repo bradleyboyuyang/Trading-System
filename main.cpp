@@ -54,7 +54,7 @@ int main(int, char**){
 	PricingService<Bond> pricingService;
 	MarketDataService<Bond> marketDataService;
 	TradeBookingService<Bond> tradeBookingService;
-	// PositionService<Bond> positionService;
+	PositionService<Bond> positionService;
 	// RiskService<Bond> riskService;
 	// AlgoExecutionService<Bond> algoExecutionService;
 	// AlgoStreamingService<Bond> algoStreamingService;
@@ -64,6 +64,12 @@ int main(int, char**){
 	// InquiryService<Bond> inquiryService;
 
 	log(LogLevel::INFO, "Trading services created");
+
+	// create listeners
+	log(LogLevel::INFO, "Linking trading listeners...");
+	tradeBookingService.AddListener(positionService.GetPositionListener());
+
+
 
 	// set output precision
 	cout << fixed << setprecision(6);
@@ -101,6 +107,5 @@ int main(int, char**){
 	log(LogLevel::INFO, "Processing trade data...");
 	tradeBookingService.GetConnector()->Subscribe(tradePath);
 	log(LogLevel::INFO, "Trade data processed");
-	
 
 }

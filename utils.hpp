@@ -150,7 +150,7 @@ std::map<string, double> pv01 = {
     {"912810RZ3", calculate_pv01(1000, 0.02750, 0.0443, 30, 2)},
 };
 
-// Get PV01 from CUSIP
+// Get unit PV01 value from CUSIP
 double getPV01(const string& cusip) {
     auto it = pv01.find(cusip);
     if (it == pv01.end()) {
