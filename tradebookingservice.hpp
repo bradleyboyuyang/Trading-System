@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include "soa.hpp"
+#include "executionservice.hpp"
 
 // Trade sides
 enum Side { BUY, SELL };
@@ -25,6 +26,7 @@ class Trade
 public:
 
   // ctor for a trade
+  Trade() = default;
   Trade(const T &_product, string _tradeId, double _price, string _book, long _quantity, Side _side);
 
   // Get the product
@@ -55,21 +57,6 @@ private:
 
 };
 
-/**
- * Trade Booking Service to book trades to a particular book.
- * Keyed on trade id.
- * Type T is the product type.
- */
-template<typename T>
-class TradeBookingService : public Service<string,Trade <T> >
-{
-
-public:
-
-  // Book the trade
-  void BookTrade(const Trade<T> &trade) = 0;
-
-};
 
 template<typename T>
 Trade<T>::Trade(const T &_product, string _tradeId, double _price, string _book, long _quantity, Side _side) :
@@ -118,9 +105,276 @@ Side Trade<T>::GetSide() const
   return side;
 }
 
+// forward declaration of connector and an execution listener
 template<typename T>
-void TradeBookingService<T>::BookTrade(const Trade<T> &trade)
+class TradeBookingConnector;
+template<typename T>
+class TradeBookingExecutionListener;
+
+/**
+ * Trade Booking Service to book trades to a particular book.
+ * Keyed on trade id.
+ * Type T is the product type.
+ */
+template<typename T>
+class TradeBookingService : public Service<string,Trade <T> >
+{
+private:
+  map<string, Trade<T>> tradeMap; // store trade data keyed by trade id
+  vector<ServiceListener<Trade<T>>*> listeners; // list of listeners to this service
+  TradeBookingConnector<T>* connector;
+  TradeBookingExecutionListener<T>* tradeListener;
+
+public:
+  // ctor and dtor
+  TradeBookingService();
+  ~TradeBookingService()=default;
+
+  // Get data
+  Trade<T>& GetData(string key);
+
+  // The callback that a Connector should invoke for any new or updated data
+  void OnMessage(Trade<T> &data);
+
+  // Add a listener to the Service for callbacks on add, remove, and update events
+  // for data to the Service.
+  void AddListener(ServiceListener<Trade<T>> *listener);
+
+  // Get all listeners on the Service.
+  const vector< ServiceListener<Trade<T>>* >& GetListeners() const;
+
+  // Get the connector
+  TradeBookingConnector<T>* GetConnector();
+
+  // Get associated trade book listener
+  TradeBookingExecutionListener<T>* GetTradeExecutionListener();
+
+  // Book the trade
+  void BookTrade(Trade<T> &trade);
+
+};
+
+template<typename T>
+TradeBookingService<T>::TradeBookingService()
+{
+  connector = new TradeBookingConnector<T>(this);
+  tradeListener = new TradeBookingExecutionListener<T>(this);
+}
+
+template<typename T>
+Trade<T>& TradeBookingService<T>::GetData(string key)
+{
+  return tradeMap[key];
+}
+
+template<typename T>
+void TradeBookingService<T>::OnMessage(Trade<T> &data)
+{
+  string key = data.GetTradeId();
+  if (tradeMap.find(key) != tradeMap.end())
+    tradeMap[key] = data;
+  else
+    tradeMap.insert(pair<string, Trade<T>>(key, data));
+
+  for(auto& listener : listeners)
+    listener->ProcessAdd(data);
+}
+
+template<typename T>
+void TradeBookingService<T>::AddListener(ServiceListener<Trade<T>> *listener)
+{
+  listeners.push_back(listener);
+}
+
+template<typename T>
+const vector< ServiceListener<Trade<T>>* >& TradeBookingService<T>::GetListeners() const
+{
+  return listeners;
+}
+
+template<typename T>
+TradeBookingConnector<T>* TradeBookingService<T>::GetConnector()
+{
+  return connector;
+}
+
+template<typename T>
+TradeBookingExecutionListener<T>* TradeBookingService<T>::GetTradeExecutionListener()
+{
+  return tradeListener;
+}
+
+
+/**
+ * Book a trade and send the information to the listener
+ */
+template<typename T>
+void TradeBookingService<T>::BookTrade(Trade<T> &trade)
+{
+  // flow the data to listeners
+  // before this, make sure the special listener is added to the service
+  // As we notify the special listener, ProcessAdd() will be called to connect data between different services
+  for(auto& l : listeners)
+    l->ProcessAdd(trade);
+
+}
+
+/**
+* Trade Booking Connector subscribing data to Trading Booking Service.
+* Type T is the product type.
+*/
+template<typename T>
+class TradeBookingConnector : public Connector<Trade<T>>
+{
+private:
+  TradeBookingService<T>* service;
+
+public:
+  // ctor
+  TradeBookingConnector(TradeBookingService<T>* _service);
+  // dtor
+  ~TradeBookingConnector()=default;
+
+  // Publish data to the Connector
+  void Publish(Trade<T> &data) override;
+
+  // Subscribe data from the Connector
+  void Subscribe(const string& dataFile);
+
+};
+
+template<typename T>
+TradeBookingConnector<T>::TradeBookingConnector(TradeBookingService<T>* _service)
+{
+  service = _service;
+}
+
+template<typename T>
+void TradeBookingConnector<T>::Publish(Trade<T> &data)
 {
 }
 
+template<typename T>
+void TradeBookingConnector<T>::Subscribe(const string& dataFile)
+{
+  ifstream file(dataFile);
+  string line;
+  while(getline(file, line))
+  {
+    // parse the line
+    vector<string> tokens;
+    stringstream ss(line);
+    string token;
+    while(getline(ss, token, ','))
+      tokens.push_back(token);
+
+    // create a trade object
+    string productId = tokens[0];
+    // create product object based on product id
+    T product = getProductObject<T>(productId);
+    string tradeId = tokens[1];
+    double price = convertPrice(tokens[2]);
+    string book = tokens[3];
+    long quantity = stol(tokens[4]);
+    Side side = tokens[5] == "BUY" ? BUY : SELL;
+    Trade<T> trade(product, tradeId, price, book, quantity, side);
+
+    // publish the trade
+    service->OnMessage(trade);
+  }
+}
+
+/**
+ * Trade Booking Execution Listener subscribing from execution service.
+ * Basically, this listener is used to subscribe data from execution service,
+ * then transfer the ExecutionOrder<T> data to Trade<T> data, and finally
+ * call BookTrade() method to publish the Trade<T> data to Trade Booking Service.
+ */
+template<typename T>
+class TradeBookingExecutionListener : public ServiceListener<ExecutionOrder<T>>
+{
+private:
+  TradeBookingService<T>* service;
+
+public:
+  // ctor
+  TradeBookingExecutionListener(TradeBookingService<T>* _service);
+  // dtor
+  ~TradeBookingExecutionListener()=default;
+
+  // Listener callback to process an add event to the Service
+  void ProcessAdd(ExecutionOrder<T> &data) override;
+
+  // Listener callback to process a remove event to the Service
+  void ProcessRemove(ExecutionOrder<T> &data) override;
+
+  // Listener callback to process an update event to the Service
+  void ProcessUpdate(ExecutionOrder<T> &data) override;
+
+};
+
+template<typename T>
+TradeBookingExecutionListener<T>::TradeBookingExecutionListener(TradeBookingService<T>* _service)
+{
+  service = _service;
+}
+
+template<typename T>
+void TradeBookingExecutionListener<T>::ProcessAdd(ExecutionOrder<T> &data)
+{
+  T product = data.GetProduct();
+  string orderId = data.GetOrderId();
+  double price = data.GetPrice();
+  PricingSide pside = data.GetSide();  
+  long vQty = data.GetVisibleQuantity();
+  long hQty = data.GetHiddenQuantity();
+  long quantity = vQty + hQty;
+  Side side;
+  switch (pside){
+    case BID:
+      side = BUY;
+      break;
+    case OFFER:
+      side = SELL;
+      break;
+  }
+  string book;
+  // randomly assign a book
+  int idx = rand() % 3;
+  switch (idx)
+  {
+  case 0:
+    book = "TRSY1";
+    break;
+  case 1:
+    book = "TRSY2";
+    break;
+  case 2:
+    book = "TRSY3";
+    break;
+  }
+
+  Trade<T> trade(product, orderId, price, book, quantity, side);
+
+  // book the trade
+  service->BookTrade(trade);
+}
+
+template<typename T>
+void TradeBookingExecutionListener<T>::ProcessRemove(ExecutionOrder<T> &data)
+{
+}
+
+template<typename T>
+void TradeBookingExecutionListener<T>::ProcessUpdate(ExecutionOrder<T> &data)
+{
+}
+
+
 #endif
+
+
+
+
+
+

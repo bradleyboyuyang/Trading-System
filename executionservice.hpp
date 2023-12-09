@@ -31,6 +31,9 @@ public:
   // Get the product
   const T& GetProduct() const;
 
+  // Get the pricing side
+  PricingSide GetSide() const;
+
   // Get the order ID
   const string& GetOrderId() const;
 
@@ -58,8 +61,8 @@ private:
   string orderId;
   OrderType orderType;
   double price;
-  double visibleQuantity;
-  double hiddenQuantity;
+  long visibleQuantity;
+  long hiddenQuantity;
   string parentOrderId;
   bool isChildOrder;
 
@@ -100,6 +103,13 @@ const T& ExecutionOrder<T>::GetProduct() const
 {
   return product;
 }
+
+template<typename T>
+PricingSide ExecutionOrder<T>::GetSide() const
+{
+  return side;
+}
+
 
 template<typename T>
 const string& ExecutionOrder<T>::GetOrderId() const

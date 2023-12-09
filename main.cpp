@@ -52,10 +52,10 @@ int main(int, char**){
     // create services
     log(LogLevel::INFO, "Creating trading services...");
 	PricingService<Bond> pricingService;
-	// TradeBookingService<Bond> tradeBookingService;
+	MarketDataService<Bond> marketDataService;
+	TradeBookingService<Bond> tradeBookingService;
 	// PositionService<Bond> positionService;
 	// RiskService<Bond> riskService;
-	MarketDataService<Bond> marketDataService;
 	// AlgoExecutionService<Bond> algoExecutionService;
 	// AlgoStreamingService<Bond> algoStreamingService;
 	// GUIService<Bond> guiService;
@@ -95,6 +95,12 @@ int main(int, char**){
 	log(LogLevel::INFO, "Processing market data...");
 	marketDataService.GetConnector()->Subscribe(marketDataPath);
 	log(LogLevel::INFO, "Market data processed");
+
+
+	// test bond trade booking service
+	log(LogLevel::INFO, "Processing trade data...");
+	tradeBookingService.GetConnector()->Subscribe(tradePath);
+	log(LogLevel::INFO, "Trade data processed");
 	
 
 }
