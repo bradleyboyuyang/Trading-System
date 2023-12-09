@@ -275,7 +275,9 @@ void genOrderBook(const vector<string>& products, const string& priceFile, const
     oFile.close();
 }
 
-
+/**
+ * Generate trades data
+ */
 void genTrades(const vector<string>& products, const string& tradeFile, long long seed) {
     vector<string> books = {"TRSY1", "TRSY2", "TRSY3"};
     vector<long> quantities = {1000000, 2000000, 3000000, 4000000, 5000000};
@@ -306,6 +308,38 @@ void genTrades(const vector<string>& products, const string& tradeFile, long lon
     }
 
     tFile.close();
+}
+
+/**
+ * Generate inquiry data
+ */
+void genInquiries(const vector<string>& products, const string& inquiryFile, long long seed){
+    std::ofstream iFile(inquiryFile);
+    std::mt19937 gen(seed);
+    vector<long> quantities = {1000000, 2000000, 3000000, 4000000, 5000000};
+
+    for (const auto& product : products) {
+        for (int i = 0; i < 10; ++i) {
+            string side = (i % 2 == 0) ? "BUY" : "SELL";
+            // generate a seven digit random inquiry id with number and letters
+            string inquiryId = "";
+            for (int j = 0; j < 10; ++j) {
+                int random = rand() % 36;
+                if (random < 10) {
+                    inquiryId += to_string(random);
+                } else {
+                    inquiryId += static_cast<char>('A' + random - 10);
+                }
+            }
+            // generate random buy price 99-100 and random sell price 100-101 with given seed
+            std::uniform_real_distribution<double> dist(side == "BUY" ? 99.0 : 100.0, side == "BUY" ? 100.0 : 101.0);
+            double price = dist(gen);
+            long quantity = quantities[i % quantities.size()];
+            string status = "RECEIVED";
+
+        iFile << inquiryId << "," << product << "," << side << "," << quantity << "," << convertPrice(price) << "," << status << endl;
+        }
+    }
 }
 
 

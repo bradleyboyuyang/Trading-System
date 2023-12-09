@@ -37,6 +37,8 @@ int main(int, char**){
 	const string marketDataPath = "../data/marketdata.txt";
 	// trade data path
 	const string tradePath = "../data/trades.txt";
+	// inquiry data path
+	const string inquiryPath = "../data/inquiries.txt";
 
 
 	// generate price and orderbook data
@@ -45,6 +47,8 @@ int main(int, char**){
     genOrderBook(bonds, pricePath, marketDataPath, 42);
 	// generate trade data
 	genTrades(bonds, tradePath, 42);
+	// generate inquiry data
+	genInquiries(bonds, inquiryPath, 42);
 
     // start trading system
     log(LogLevel::INFO, "Trading System starts running...");
@@ -61,7 +65,7 @@ int main(int, char**){
 	// GUIService<Bond> guiService;
 	// ExecutionService<Bond> executionService;
 	// StreamingService<Bond> streamingService;
-	// InquiryService<Bond> inquiryService;
+	InquiryService<Bond> inquiryService;
 
 	log(LogLevel::INFO, "Trading services created");
 
@@ -107,5 +111,11 @@ int main(int, char**){
 	log(LogLevel::INFO, "Processing trade data...");
 	tradeBookingService.GetConnector()->Subscribe(tradePath);
 	log(LogLevel::INFO, "Trade data processed");
+
+
+	// test inquiry service
+	log(LogLevel::INFO, "Processing inquiry data...");
+	inquiryService.GetConnector()->Subscribe(inquiryPath);
+	log(LogLevel::INFO, "Inquiry data processed");
 
 }
