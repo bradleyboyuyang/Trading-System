@@ -26,7 +26,7 @@ public:
 
   // ctor for a position
   Position() = default;
-  Position(const T &_product);
+  Position(const T &productId);
 
   // Get the product
   const T& GetProduct() const;
@@ -40,6 +40,10 @@ public:
   //  send position to risk service through listener
   void AddPosition(string &book, long position);
 
+  // object printer
+  template<typename U>
+  friend ostream& operator<<(ostream& os, const Position<U>& position);
+
 private:
   T product;
   map<string,long> bookPositionMap;
@@ -48,8 +52,8 @@ private:
 
 
 template<typename T>
-Position<T>::Position(const T &_product) :
-  product(_product)
+Position<T>::Position(const T &productId) :
+  product(productId)
 {
 }
 
@@ -87,7 +91,27 @@ void Position<T>::AddPosition(string &book, long position)
   {
     bookPositionMap[book] += position;
   }
+}
 
+template<typename T>
+ostream& operator<<(ostream& os, const Position<T>& position)
+{
+  T product = position.GetProduct();
+  string productId = product.GetProductId();
+	vector<string> _positions;
+	for (auto& p : positions)
+	{
+		string _book = p.first;
+		string _position = to_string(p.second);
+		_positions.push_back(_book);
+		_positions.push_back(_position);
+	}
+	vector<string> _strings;
+	_strings.push_back(productId);
+	_strings.insert(_strings.end(), _positions.begin(), _positions.end());
+  string _str = join(_strings, ",");
+  os << _str;
+  return os;
 }
 
 // Pre-declaration of a listener used to subscribe data from trade booking service
@@ -199,7 +223,6 @@ void PositionService<T>::AddTrade(const Trade<T> &trade)
   }
 
 }
-
 
 /**
  * Listener class for PositionService.

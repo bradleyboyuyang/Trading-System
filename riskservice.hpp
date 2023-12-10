@@ -36,6 +36,10 @@ public:
   // Add quantity associated with this risk value
   void AddQuantity(long _quantity);
 
+  // Object printer
+  template<typename U>
+  friend ostream& operator<<(ostream& os, const PV01<U>& pv01);
+
 private:
   T product;
   double pv01;
@@ -75,6 +79,22 @@ void PV01<T>::AddQuantity(long _quantity)
   quantity += _quantity;
 }
 
+template<typename T>
+ostream& operator<<(ostream& os, const PV01<T>& pv01)
+{
+  T product = pv01.GetProduct();
+	string _product = product.GetProductId();
+	string _pv01 = to_string(pv01);
+	string _quantity = to_string(quantity);
+
+	vector<string> _strings;
+	_strings.push_back(_product);
+	_strings.push_back(_pv01);
+	_strings.push_back(_quantity);
+  string _str = join(_strings, ",");
+  os << _str;
+  return os;
+}
 
 /**
  * A bucket sector to bucket a group of securities.

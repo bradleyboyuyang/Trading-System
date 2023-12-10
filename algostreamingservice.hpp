@@ -9,6 +9,7 @@
 #define ALGOSTREAMING_SERVICE_HPP
 
 #include "soa.hpp"
+#include "utils.hpp"
 #include "pricingservice.hpp"
 #include "marketdataservice.hpp" // for PricingSide definition
 
@@ -35,6 +36,9 @@ public:
 
   // Get the hidden quantity on this order
   long GetHiddenQuantity() const;
+
+  // object printer
+  friend ostream& operator<<(ostream& os, const PriceStreamOrder& order);
 
 private:
   double price;
@@ -72,6 +76,32 @@ PricingSide PriceStreamOrder::GetSide() const
   return side;
 }
 
+ostream& operator<<(ostream& os, const PriceStreamOrder& order)
+{
+	string _price = convertPrice(order.GetPrice());
+	string _visibleQuantity = to_string(order.GetVisibleQuantity());
+	string _hiddenQuantity = to_string(order.GetHiddenQuantity());
+  PricingSide side = order.GetSide();
+	string _side;
+	switch (side)
+	{
+	case BID:
+		_side = "BID";
+		break;
+	case OFFER:
+		_side = "OFFER";
+		break;
+	}
+
+	vector<string> _strings;
+	_strings.push_back(_price);
+	_strings.push_back(_visibleQuantity);
+	_strings.push_back(_hiddenQuantity);
+	_strings.push_back(_side);
+  string _str = join(_strings, ",");
+  os << _str;
+  return os;
+}
 
 /**
  * Price Stream with a two-way market.
@@ -95,6 +125,10 @@ public:
 
   // Get the offer order
   const PriceStreamOrder& GetOfferOrder() const;
+
+  // object printer
+  template<typename U>
+  friend ostream& operator<<(ostream& os, const PriceStream<U>& priceStream);
 
 private:
   T product;
@@ -125,6 +159,16 @@ template<typename T>
 const PriceStreamOrder& PriceStream<T>::GetOfferOrder() const
 {
   return offerOrder;
+}
+
+template<typename T>
+ostream& operator<<(ostream& os, const PriceStream<T>& priceStream)
+{
+  T product = priceStream.GetProduct();
+  string productId = product.GetProductId();
+  PriceStreamOrder bidOrder = priceStream.GetBidOrder();
+  PriceStreamOrder offerOrder = priceStream.GetOfferOrder();
+  os << productId << "," << bidOrder << "," << offerOrder;
 }
 
 /**

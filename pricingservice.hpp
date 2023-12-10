@@ -75,7 +75,18 @@ double Price<T>::GetBidOfferSpread() const
 template<typename T>
 ostream& operator<<(ostream& os, const Price<T>& price)
 {
-  os << "Price Object (Product: " << price.product << ", Mid Price: " << price.mid << ", Spread: " << price.bidOfferSpread << ")" << endl;
+  T product = price.GetProduct();
+	string _product = product.GetProductId();
+	string _mid = ConvertPrice(mid);
+	string _bidOfferSpread = ConvertPrice(bidOfferSpread);
+
+	vector<string> _strings;
+	_strings.push_back(_product);
+	_strings.push_back(_mid);
+	_strings.push_back(_bidOfferSpread);
+  string _str = join(_strings, ",");
+  os << _str;
+
   return os;
 }
 

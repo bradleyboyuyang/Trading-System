@@ -30,6 +30,15 @@ using namespace std;
 #define CYAN    "\033[36m"
 #define WHITE   "\033[37m"
 
+// join a string vector with a delimiter
+string join(const vector<string>& v, const string& delimiter) {
+    string res;
+    for (const auto& s : v) {
+        res += s + delimiter;
+    }
+    return res.substr(0, res.size() - delimiter.size());
+}
+
 
 // get the system time and return in milliseconds format (e.g. 2023-12-23 22:42:44.260)
 string getTime() {

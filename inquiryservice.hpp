@@ -8,6 +8,7 @@
 #define INQUIRY_SERVICE_HPP
 
 #include "soa.hpp"
+#include "utils.hpp"
 #include "tradebookingservice.hpp"
 
 // Various inqyury states
@@ -50,6 +51,10 @@ public:
 
   // Set the current state on the inquiry
   void SetState(InquiryState state);
+
+  // object printer
+  template<typename U>
+  friend ostream& operator<<(ostream& os, const Inquiry<U>& inquiry);
 
 private:
   string inquiryId;
@@ -119,6 +124,57 @@ template<typename T>
 void Inquiry<T>::SetState(InquiryState _state)
 {
   state = _state;
+}
+
+template<typename T>
+ostream& operator<<(ostream& os, const Inquiry<T>& inquiry)
+{
+  string _inquiryId = inquiry.GetInquiryId();
+  T product = inquiry.GetProduct();
+  string _product = product.GetProductId();
+  Side side = inquiry.GetSide();
+  string _side;
+  switch (side)
+  {
+  case BID:
+    _side = "BID";
+    break;
+  case OFFER:
+    _side = "OFFER";
+    break;
+  }
+  long _quantity = inquiry.GetQuantity();
+  double _price = inquiry.GetPrice();
+  string _state;
+  switch (inquiry.GetState())
+  {
+  case RECEIVED:
+    _state = "RECEIVED";
+    break;
+  case QUOTED:
+    _state = "QUOTED";
+    break;
+  case DONE:
+    _state = "DONE";
+    break;
+  case REJECTED:
+    _state = "REJECTED";
+    break;
+  case CUSTOMER_REJECTED:
+    _state = "CUSTOMER_REJECTED";
+    break;
+  }
+
+  vector<string> _strings;
+  _strings.push_back(_inquiryId);
+  _strings.push_back(_product);
+  _strings.push_back(_side);
+  _strings.push_back(to_string(_quantity));
+  _strings.push_back(convertPrice(_price));
+  _strings.push_back(_state);
+  string _str = join(_strings, ",");
+  os << _str;
+  return os;
 }
 
 /**

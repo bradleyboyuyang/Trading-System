@@ -57,6 +57,10 @@ public:
   // Is child order?
   bool IsChildOrder() const;
 
+  // object printer
+  template<typename U>
+  friend ostream& operator<<(ostream& os, const ExecutionOrder<U>& order);
+
 private:
   T product;
   PricingSide side;
@@ -139,6 +143,41 @@ bool ExecutionOrder<T>::IsChildOrder() const
   return isChildOrder;
 }
 
+template<typename T>
+ostream& operator<<(ostream& os, const ExecutionOrder<T>& order)
+{
+  T product = order.GetProduct();
+  string _product = product.GetProductId();
+  string _orderId = order.GetOrderId();
+  string _side = (order.GetSide()==BID? "Bid":"Ask");
+  string _orderType;
+  switch(order.GetOrderType()) {
+      case FOK: _orderType = "FOK"; break;
+      case MARKET: _orderType = "MARKET"; break;
+      case LIMIT: _orderType = "LIMIT"; break;
+      case STOP: _orderType = "STOP"; break;
+      case IOC: _orderType = "IOC"; break;
+  }
+  string _price = ConvertPrice(order.GetPrice());
+  string _visibleQuantity = to_string(order.GetVisibleQuantity());
+  string _hiddenQuantity = to_string(order.GetHiddenQuantity());
+  string _parentOrderId = order.GetParentOrderId();
+  string _isChildOrder = (order.IsChildOrder()?"True":"False");
+
+  vector<string> _strings;
+  _strings.push_back(_product);
+  _strings.push_back(_orderId);
+  _strings.push_back(_side);
+  _strings.push_back(_orderType);
+  _strings.push_back(_price);
+  _strings.push_back(_visibleQuantity);
+  _strings.push_back(_hiddenQuantity);
+  _strings.push_back(_parentOrderId);
+  _strings.push_back(_isChildOrder);
+  string _str = join(_strings, ",");
+  os << _str;
+  return os;
+}
 
 /**
  * Algo Execution Service to execute orders on market.
