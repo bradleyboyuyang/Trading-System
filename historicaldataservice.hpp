@@ -39,7 +39,6 @@ private:
 public:
   // ctor and dtor
   HistoricalDataService();
-  ~HistoricalDataService()=default;
   HistoricalDataService(ServiceType _type);  
   ~HistoricalDataService()=default;
 
@@ -127,13 +126,9 @@ void HistoricalDataService<T>::PersistData(string persistKey, const T& data)
 {
   // save position/risk/execution/inquiry/streaming data to the service
   if (dataMap.find(persistKey) == dataMap.end())
-  {
     dataMap.insert(pair<string, T>(persistKey, data));
-  }
   else
-  {
     dataMap[persistKey] = data;
-  }
 
   // persist/publish data to an external data store
   connector->Publish(data);

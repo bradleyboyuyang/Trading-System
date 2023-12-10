@@ -112,7 +112,6 @@ int main(int, char**){
 	tradeBookingService.GetConnector()->Subscribe(tradePath);
 	log(LogLevel::INFO, "Trade data processed");
 
-
 	// test inquiry service
 	log(LogLevel::INFO, "Processing inquiry data...");
 	inquiryService.GetConnector()->Subscribe(inquiryPath);
