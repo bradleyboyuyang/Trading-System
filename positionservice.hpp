@@ -146,7 +146,7 @@ Position<T>& PositionService<T>::GetData(string key)
 }
 
 /**
- * OnMessage() used to be called by connector to subscribe data
+ * OnMessage() used to be called by an input connector to subscribe data from outside
  * no need to implement here.
  */
 template<typename T>
