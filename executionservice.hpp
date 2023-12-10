@@ -14,7 +14,7 @@
 
 /**
  * Forward declaration of ExecutionServiceConnector
- * As described, execution service needs a publish-only connector to publish executions (which notify the listener and print the execution data)
+ * As described, execution service needs a publish-only connector to publish executions 
  * Type T is the product type.
  */
 template<typename T>
@@ -54,11 +54,11 @@ public:
   // Get the connector
   ExecutionServiceConnector<T>* GetConnector();
 
-  // Execute an order on a market, called by ExecutionServiceListener to subscribe data from Algo Execution Service to Execution Service
-  void ExecuteOrder(const ExecutionOrder<T>& order);
+  // Execute an order on a market, called by the publish-only connector to publish executions
+  void ExecuteOrder(const ExecutionOrder<T>& order, Market market);
 
-  // Called by the publish-only connector to publish executions
-  void AddExecutionOrder(ExecutionOrder<T>& order, Market market);
+  // called by ExecutionServiceListener to subscribe data from Algo Execution Service to Execution Service
+  void AddExecutionOrder(const AlgoExecution<T>& algoExecution);
 
 };
 
@@ -101,25 +101,31 @@ ExecutionServiceConnector<T>* ExecutionService<T>::GetConnector()
 }
 
 /**
- * Execute an order on a market, called by ExecutionServiceListener to subscribe data from Algo Execution Service to Execution Service
+ * Execute an order on a market, called by the publish-only connector to publish executions via connector
+ */
+template<typename T>
+void ExecutionService<T>::ExecuteOrder(const ExecutionOrder<T>& order, Market market)
+{
+  connector->Publish(order, market);
+}
+
+/**
+ * Called by ExecutionServiceListener to subscribe data from Algo Execution Service to Execution Service
  * Store the listened algo execution order data into execution order map
  * Key should be the order id (unique)
  */
 template<typename T>
-void ExecutionService<T>::ExecuteOrder(const ExecutionOrder<T>& order)
+void ExecutionService<T>::AddExecutionOrder(const AlgoExecution<T>& algoExecution)
 {
-  string orderId = order.GetOrderId();
+  ExecutionOrder<T> executionOrder = algoExecution.GetExecutionOrder();
+  string orderId = executionOrder.GetOrderId();
   if (executionOrderMap.find(orderId) != executionOrderMap.end()) {executionOrderMap.erase(orderId);}
-  executionOrderMap.insert(pair<string, ExecutionOrder<T>> (orderId, order));
-}
-
-/**
- * Called by the publish-only connector to publish executions via connector
- */
-template<typename T>
-void ExecutionService<T>::AddExecutionOrder(ExecutionOrder<T>& order, Market market)
-{
-  connector->Publish(order, market);
+  executionOrderMap.insert(pair<string, ExecutionOrder<T>> (orderId, executionOrder));
+  
+  // notify the listener
+  for (auto& l : listeners) {
+      l -> ProcessAdd(executionOrder);
+  }
 }
 
 /**
@@ -139,7 +145,7 @@ public:
   ~ExecutionServiceConnector()=default;
 
   // Publish data to the Connector
-  void Publish(ExecutionOrder<T>& data, Market& market) override;
+  void Publish(ExecutionOrder<T>& order, Market& market) override;
 
   // No Subscribe() method for publish-only connector
 };
@@ -152,20 +158,14 @@ ExecutionServiceConnector<T>::ExecutionServiceConnector(ExecutionService<T>* _se
 
 /**
  * Publish() method is used by publish-only connector to publish executions.
- * 1. notify the listener
- * 2. print the execution data
  */
 template<typename T>
-void ExecutionServiceConnector<T>::Publish(ExecutionOrder<T>& data, Market& market)
+void ExecutionServiceConnector<T>::Publish(ExecutionOrder<T>& order, Market& market)
 {
-  // notify the listener
-  for(auto& l : service->GetListeners())
-    l->ProcessAdd(data);
-
-  // print the execution data
-  auto product = data.GetProduct();
+  // print the execution order data
+  auto product = order.GetProduct();
   string order_type;
-  switch(data.GetOrderType()) {
+  switch(order.GetOrderType()) {
       case FOK: order_type = "FOK"; break;
       case MARKET: order_type = "MARKET"; break;
       case LIMIT: order_type = "LIMIT"; break;
@@ -178,12 +178,13 @@ void ExecutionServiceConnector<T>::Publish(ExecutionOrder<T>& data, Market& mark
       case ESPEED: tradeMarket = "ESPEED"; break;
       case CME: tradeMarket = "CME"; break;
   }
-  cout<<"Product: " << product.GetProductId() <<" OrderId: "<<data.GetOrderId()<< "Trade Market: " << tradeMarket << "\n"
-      <<"\tPricingSide: "<<(data.GetSide()==BID? "Bid":"Ask")
-      <<" OrderType: "<<order_type<<"\tIsChildOrder: "<<(data.IsChildOrder()?"True":"False")
+  cout << "ExecutionOrder: \n"
+      <<"\tProduct: " << product.GetProductId() <<" OrderId: "<<order.GetOrderId()<< "Trade Market: " << tradeMarket << "\n"
+      <<"\tPricingSide: "<<(order.GetSide()==BID? "Bid":"Ask")
+      <<" OrderType: "<<order_type<<"\tIsChildOrder: "<<(order.IsChildOrder()?"True":"False")
       <<"\n"
-      <<"\tPrice: "<<data.GetPrice()<<"\tVisibleQuantity: "<<data.GetVisibleQuantity()
-      <<"\tHiddenQuantity: "<<data.GetHiddenQuantity()<<endl<<endl;
+      <<"\tPrice: "<<order.GetPrice()<<"\tVisibleQuantity: "<<order.GetVisibleQuantity()
+      <<"\tHiddenQuantity: "<<order.GetHiddenQuantity()<<endl<<endl;
 }
 
 /**
@@ -226,12 +227,15 @@ ExecutionServiceListener<T>::ExecutionServiceListener(ExecutionService<T>* _exec
 template<typename T>
 void ExecutionServiceListener<T>::ProcessAdd(AlgoExecution<T> &data)
 {
+  // save algo execution info into execution service
+  // directly pass in AlgoExecution<T> type and transit to ExecutionOrder<T> type inside the function
+  executionService->AddExecutionOrder(data);
+
+  // call the connector to publish executions
   ExecutionOrder<T> executionOrder = data.GetExecutionOrder();
   Market market = data.GetMarket();
-  // save algo execution info into execution service
-  executionService->ExecuteOrder(executionOrder);
-  // call the connector to publish executions
-  executionService->AddExecutionOrder(executionOrder, market);
+  executionService->ExecuteOrder(executionOrder, market);
+
 }
 
 template<typename T>
