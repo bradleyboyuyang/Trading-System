@@ -54,7 +54,7 @@ public:
   // Get the connector
   ExecutionServiceConnector<T>* GetConnector();
 
-  // Execute an order on a market, called by the publish-only connector to publish executions
+  // Execute an order on a market, call the publish-only connector to publish executions
   void ExecuteOrder(const ExecutionOrder<T>& order, Market market);
 
   // called by ExecutionServiceListener to subscribe data from Algo Execution Service to Execution Service
@@ -101,7 +101,7 @@ ExecutionServiceConnector<T>* ExecutionService<T>::GetConnector()
 }
 
 /**
- * Execute an order on a market, called by the publish-only connector to publish executions via connector
+ * Execute an order on a market, call the publish-only connector to publish executions via connector
  */
 template<typename T>
 void ExecutionService<T>::ExecuteOrder(const ExecutionOrder<T>& order, Market market)
@@ -222,7 +222,7 @@ ExecutionServiceListener<T>::ExecutionServiceListener(ExecutionService<T>* _exec
 
 /**
  * ProcessAdd() method is used by listener to subscribe data from Algo Execution Service to Execution Service.
- * It calls ExecuteOrder() method and the AddExecutionOrder() method 
+ * It calls ExecuteOrder() method (for publishing through connector) and the AddExecutionOrder() method (for saving data into execution order map)
  */
 template<typename T>
 void ExecutionServiceListener<T>::ProcessAdd(AlgoExecution<T> &data)

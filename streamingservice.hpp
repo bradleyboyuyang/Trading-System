@@ -99,7 +99,7 @@ StreamingServiceConnector<T>* StreamingService<T>::GetConnector()
   return connector;
 }
 
-// called by the publish-only connector to publish streams
+// call the publish-only connector to publish streams
 template<typename T>
 void StreamingService<T>::PublishPrice(const PriceStream<T>& priceStream)
 {

@@ -10,6 +10,7 @@
 
 
 #include "soa.hpp"
+#include "utils.hpp"
 
 enum ServiceType {POSITION, RISK, EXECUTION, STREAMING, INQUIRY};
 
@@ -28,17 +29,250 @@ class HistoricalDataConnector;
 template<typename T>
 class HistoricalDataService : Service<string,T>
 {
+private:
+  map<string, T> dataMap; // store data keyed by some persistent key
+  vector<ServiceListener<T>*> listeners; // list of listeners to this service
+  HistoricalDataConnector<T>* connector; // connector related to this server
+  ServiceType type; // type of the service
+
 
 public:
   // ctor and dtor
   HistoricalDataService();
   ~HistoricalDataService()=default;
   HistoricalDataService(ServiceType _type);  
+  ~HistoricalDataService()=default;
 
+  // Get data on our service given a key
+  T& GetData(string key) override;
+
+  // The callback that a Connector should invoke for any new or updated data
+  void OnMessage(T& data) override;
+
+  // Add a listener to the Service for callbacks on add, remove, and update events for data to the Service
+  void AddListener(ServiceListener<T> *listener) override;
+
+  // Get all listeners on the Service.
+  const vector< ServiceListener<T>* >& GetListeners() const override;
+
+  // Get the connector
+  HistoricalDataConnector<T>* GetConnector();
+
+  // Get the type of the service
+	ServiceType GetServiceType() const;
 
   // Persist data to a store
-  void PersistData(string persistKey, const T& data) = 0;
+  // call the connector to persist/publish data to an external store (such as KDB database)
+  void PersistData(string persistKey, const T& data);
 
 };
+
+template<typename T>
+HistoricalDataService<T>::HistoricalDataService()
+{
+  connector = new HistoricalDataConnector<T>(this); // connector related to this server
+}
+
+template<typename T>
+HistoricalDataService<T>::HistoricalDataService(ServiceType _type)
+{
+  type = _type;
+  connector = new HistoricalDataConnector<T>(this); // connector related to this server
+}
+
+template<typename T>
+T& HistoricalDataService<T>::GetData(string key)
+{
+  return dataMap[key];
+}
+
+/**
+ * OnMessage() used to be called by input connector to subscribe data
+ * The service only has a publish-only connector and hence no need to implement here.
+ */
+template<typename T>
+void HistoricalDataService<T>::OnMessage(T& data)
+{
+}
+
+template<typename T>
+void HistoricalDataService<T>::AddListener(ServiceListener<T> *listener)
+{
+  listeners.push_back(listener);
+}
+
+template<typename T>
+const vector< ServiceListener<T>* >& HistoricalDataService<T>::GetListeners() const
+{
+  return listeners;
+}
+
+template<typename T>
+HistoricalDataConnector<T>* HistoricalDataService<T>::GetConnector()
+{
+  return connector;
+}
+
+template<typename T>
+ServiceType HistoricalDataService<T>::GetServiceType() const
+{
+  return type;
+}
+
+// Historical data service listener subscribes data from position, risk, execution, streaming and inquiry services.
+// call the connector to persist/publish data to an external store (such as KDB database)
+// NOTE: since data from different services are keyed by different keys, we need to pass in the key as function parameter as well
+template<typename T>
+void HistoricalDataService<T>::PersistData(string persistKey, const T& data)
+{
+  // save position/risk/execution/inquiry/streaming data to the service
+  if (dataMap.find(persistKey) == dataMap.end())
+  {
+    dataMap.insert(pair<string, T>(persistKey, data));
+  }
+  else
+  {
+    dataMap[persistKey] = data;
+  }
+
+  // persist/publish data to an external data store
+  connector->Publish(data);
+}
+
+/**
+* Historical Data Connector publishing data from Historical Data Service.
+* Type T is the data type to persist.
+ */
+template<typename T>
+class HistoricalDataConnector : public Connector<T>
+{
+private:
+  HistoricalDataService<T>* service;
+
+public:
+  // ctor
+  HistoricalDataConnector(HistoricalDataService<T>* _service);
+  // Publish-only connector, publish to external source
+  void Publish(T& data) override;
+};
+
+template<typename T>
+HistoricalDataConnector<T>::HistoricalDataConnector(HistoricalDataService<T>* _service)
+: service(_service)
+{
+}
+
+/**
+ * Publish data to the Connector
+ * call the connector to persist/publish data to an external store (such as KDB database)
+ * for data from different services, obtain the string representation of these objects and vend out 
+ * into positions.txt, risk.txt, executions.txt, allinquiries.txt, streaming.txt
+ */
+template<typename T>
+void HistoricalDataConnector<T>::Publish(T& data)
+{
+  ServiceType type = service->GetServiceType();
+  ofstream outFile;
+  string fileName;
+  switch (type)
+  {
+    case POSITION:
+      fileName = "positions.txt";
+      break;
+    case RISK:
+      fileName = "risk.txt";
+      break;
+    case EXECUTION:
+      fileName = "executions.txt";
+      break;
+    case STREAMING:
+      fileName = "streaming.txt";
+      break;
+    case INQUIRY:
+      fileName = "allinquiries.txt";
+      break;
+    default:
+      break;
+  }
+  outFile.open(fileName, ios::app);
+  if (outFile.is_open())
+  {
+    // need overloading operator<< for different data types
+    outFile << getTime() << "," << data << endl;
+  }
+  outFile.close();
+}
+
+/**
+* Historical Data Service Listener subscribing data to Historical Data.
+* Type T is the data type to persist.
+*/
+template<typename T>
+class HistoricalDataServiceListener : public ServiceListener<T>
+{
+private:
+  HistoricalDataService<T>* service;
+
+public:
+  // ctor
+  HistoricalDataServiceListener(HistoricalDataService<T>* _service);
+  // Listener callback to process an add event to the Service
+  void ProcessAdd(T& data) override;
+  // Listener callback to process a remove event to the Service
+  void ProcessRemove(T& data) override;
+  // Listener callback to process an update event to the Service
+  void ProcessUpdate(T& data) override;
+};
+
+template<typename T>
+HistoricalDataServiceListener<T>::HistoricalDataServiceListener(HistoricalDataService<T>* _service)
+{
+  service = _service;
+}
+
+/**
+ * Historical data service listener subscribes data from position, risk, execution, streaming and inquiry services.
+ * ProcessAdd() thus calls PersistData() method to let connector persist/publish data to external data store (such as a KDB database)
+*/
+template<typename T>
+void HistoricalDataServiceListener<T>::ProcessAdd(T& data)
+{
+  ServiceType type = service->GetServiceType();
+  string persistKey;
+  // different services have different keys!
+  switch (type)
+  {
+    case POSITION:
+      persistKey = data.GetProduct().GetProductId();
+      break;
+    case RISK:
+      persistKey = data.GetProduct().GetProductId();
+      break;
+    case EXECUTION:
+      // data type: AlgoExecution<T>
+      persistKey = data.GetOrderId();
+      break;
+    case STREAMING:
+      persistKey = data.GetProduct().GetProductId();
+      break;
+    case INQUIRY:
+      // data type: Inquiry<T>
+      persistKey = data.GetInquiryId();
+      break;
+    default:
+      break;
+  }
+  service->PersistData(persistKey, data);
+}
+
+template<typename T>
+void HistoricalDataServiceListener<T>::ProcessRemove(T& data)
+{
+}
+
+template<typename T>
+void HistoricalDataServiceListener<T>::ProcessUpdate(T& data)
+{
+}
 
 #endif
