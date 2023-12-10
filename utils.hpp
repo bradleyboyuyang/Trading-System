@@ -197,6 +197,21 @@ double genRandomSpread(std::mt19937& gen) {
     return dist(gen);
 }
 
+// Generate random ID with numbers and letters
+string GenerateRandomId(long length)
+{
+    string id = "";
+    for (int j = 0; j < length; ++j) {
+        int random = rand() % 36;
+        if (random < 10) {
+            id += to_string(random);
+        } else {
+            id += static_cast<char>('A' + random - 10);
+        }
+    }
+    return id;
+}
+
 /**
  * 1. Generate prices that oscillate between 99 and 101 and write to prices.txt
  * 2. Generate order book data with fivel levels of bids and offers and write to marketdata.txt
@@ -287,16 +302,8 @@ void genTrades(const vector<string>& products, const string& tradeFile, long lon
     for (const auto& product : products) {
         for (int i = 0; i < 10; ++i) {
             string side = (i % 2 == 0) ? "BUY" : "SELL";
-            // generate a seven digit random trade id with number and letters
-            string tradeId = "";
-            for (int j = 0; j < 7; ++j) {
-                int random = rand() % 36;
-                if (random < 10) {
-                    tradeId += to_string(random);
-                } else {
-                    tradeId += static_cast<char>('A' + random - 10);
-                }
-            }
+            // generate a 12 digit random trade id with number and letters
+            string tradeId = GenerateRandomId(12);
             // generate random buy price 99-100 and random sell price 100-101 with given seed
             std::uniform_real_distribution<double> dist(side == "BUY" ? 99.0 : 100.0, side == "BUY" ? 100.0 : 101.0);
             double price = dist(gen);
@@ -321,16 +328,8 @@ void genInquiries(const vector<string>& products, const string& inquiryFile, lon
     for (const auto& product : products) {
         for (int i = 0; i < 10; ++i) {
             string side = (i % 2 == 0) ? "BUY" : "SELL";
-            // generate a seven digit random inquiry id with number and letters
-            string inquiryId = "";
-            for (int j = 0; j < 10; ++j) {
-                int random = rand() % 36;
-                if (random < 10) {
-                    inquiryId += to_string(random);
-                } else {
-                    inquiryId += static_cast<char>('A' + random - 10);
-                }
-            }
+            // generate a 12 digit random inquiry id with number and letters
+            string inquiryId = GenerateRandomId(12);
             // generate random buy price 99-100 and random sell price 100-101 with given seed
             std::uniform_real_distribution<double> dist(side == "BUY" ? 99.0 : 100.0, side == "BUY" ? 100.0 : 101.0);
             double price = dist(gen);

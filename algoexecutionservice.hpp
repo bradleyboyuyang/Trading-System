@@ -10,6 +10,7 @@
 #include <string>
 #include "soa.hpp"  
 #include "marketdataservice.hpp"
+#include "utils.hpp"
 
 enum OrderType { FOK, IOC, MARKET, LIMIT, STOP };
 
@@ -55,10 +56,6 @@ public:
 
   // Is child order?
   bool IsChildOrder() const;
-
-// object printer (needed by ExecutionServiceConnector)
-  template<typename U>
-  friend ostream& operator<<(ostream& os, const ExecutionOrder<U>& order);  
 
 private:
   T product;
@@ -142,13 +139,6 @@ bool ExecutionOrder<T>::IsChildOrder() const
   return isChildOrder;
 }
 
-template<typename T>
-ostream& operator<<(ostream& os, const ExecutionOrder<T>& order)
-{
-  os << "Execution Order Object (Product: " << order.product << ", Side: " << order.side << ", Order ID: " << order.orderId << ", Order Type: " << order.orderType << ", Price: " << order.price << ", Visible Quantity: " << order.visibleQuantity << ", Hidden Quantity: " << order.hiddenQuantity << ", Parent Order ID: " << order.parentOrderId << ", Is Child Order: " << order.isChildOrder << ")" << endl;
-  return os;
-}
-
 
 /**
  * Algo Execution Service to execute orders on market.
@@ -161,13 +151,11 @@ class AlgoExecution
 private:
     ExecutionOrder<T> executionOrder;
     Market market;
-    double bidPrice;
-    double offerPrice;
 
 public:
-    // ctor
-    AlgoExecution() = default;
-    AlgoExecution(const ExecutionOrder<T>& _executionOrder, Market _market, double _bidPrice, double _offerPrice);
+    // ctor for an order
+    AlgoExecution() = default; // needed for map data structure later
+    AlgoExecution(const ExecutionOrder<T> &_executionOrder, Market _market);
 
     // Get the execution order
     const ExecutionOrder<T>& GetExecutionOrder() const;
@@ -175,22 +163,215 @@ public:
     // Get the market
     Market GetMarket() const;
 
-    // Get the bid price
-    double GetBidPrice() const;
+};    
 
-    // Get the offer price
-    double GetOfferPrice() const;
+template<typename T>
+AlgoExecution<T>::AlgoExecution(const ExecutionOrder<T> &_executionOrder, Market _market) :
+  executionOrder(_executionOrder), market(_market)
+{
+}
+
+template<typename T>
+const ExecutionOrder<T>& AlgoExecution<T>::GetExecutionOrder() const
+{
+  return executionOrder;
+}
+
+template<typename T>
+Market AlgoExecution<T>::GetMarket() const
+{
+  return market;
+}
+
+/**
+ * Algo Execution Service to execute orders on market.
+ * Keyed on product identifier.
+ * Type T is the product type.
+ */
+template<typename T>
+class AlgoExecutionService : public Service<string, AlgoExecution<T>>
+{
+private:
+  map<string, AlgoExecution<T>> algoExecutionMap; // store algo execution data keyed by product identifier
+  vector<ServiceListener<AlgoExecution<T>>*> listeners; // list of listeners to this service
+  double spread;
+  long count;
+
+public:
+    // ctor
+    AlgoExecutionService();
+    // dtor
+    ~AlgoExecutionService() = default;
+    
+    // Get data on our service given a key
+    AlgoExecution<T>& GetData(string key);
+    
+    // The callback that a Connector should invoke for any new or updated data
+    void OnMessage(AlgoExecution<T>& data) override;
+    
+    // Add a listener to the Service for callbacks on add, remove, and update events for data to the Service
+    void AddListener(ServiceListener<AlgoExecution<T>> *listener) override;
+    
+    // Get all listeners on the Service.
+    const vector< ServiceListener<AlgoExecution<T>>* >& GetListeners() const override;
+    
+    // Execute an algo order on a market, called by AlgoExecutionServiceListener to subscribe data from Algo Market Data Service to Algo Execution Service
+    void AlgoExecuteOrder(OrderBook<T>& _orderBook);
+    
 };
 
+template<typename T>
+AlgoExecutionService<T>::AlgoExecutionService()
+{
+  count = 0;
+}
+
+template<typename T>
+AlgoExecution<T>& AlgoExecutionService<T>::GetData(string key)
+{
+  return algoExecutionMap[key];
+}
+
+/**
+ * OnMessage() used to be called by input connector to subscribe data
+ * no need to implement here.
+ */
+template<typename T>
+void AlgoExecutionService<T>::OnMessage(AlgoExecution<T>& data)
+{
+}
+
+template<typename T>
+void AlgoExecutionService<T>::AddListener(ServiceListener<AlgoExecution<T>> *listener)
+{
+  listeners.push_back(listener);
+}
+
+template<typename T>
+const vector< ServiceListener<AlgoExecution<T>>* >& AlgoExecutionService<T>::GetListeners() const
+{
+  return listeners;
+}
+
+/**
+ * Similar to AddExecutionOrder in executionservice.hpp
+ * Execute an algo order on a market, called by AlgoExecutionServiceListener to subscribe data from Algo Market Data Service to Algo Execution Service
+ * 1. Store the listened market orderbook data into algo execution map
+ * 2. Flow the data to listeners
+ */
+template<typename T>
+void AlgoExecutionService<T>::AlgoExecuteOrder(OrderBook<T>& _orderBook)
+{
+  // get the order book data
+  T product = _orderBook.GetProduct();
+  string key = product.GetProductId();
+  string orderId = "AlgoOrder" + GenerateRandomId(13);
+  string parentOrderId = "AlgoParentOrder" + GenerateRandomId(7);
+
+  // get the best bid and offer order and their corresponding price and quantity
+  BidOffer bidOffer = _orderBook.GetBestBidOffer();
+  Order bid = bidOffer.GetBidOrder();
+  Order offer = bidOffer.GetOfferOrder();
+  double bidPrice = bid.GetPrice();
+  double offerPrice = offer.GetPrice();
+  long bidQuantity = bid.GetQuantity();
+  long offerQuantity = offer.GetQuantity();
+
+  PricingSide side;
+  double price;
+  long quantity; 
+  // only agressing when the spread is at its tightest (1/128)
+  if (offerPrice-bidPrice <= 1.0/128.0){
+    // alternating between bid and offer 
+    // taking the opposite side of the book to cross the spread, i.e., market order
+    if (count % 2 == 0) {
+      side = BID;
+      price = offerPrice; // BUY order takes best ask price
+      quantity = bidQuantity;
+    } else {
+      side = OFFER;
+      price = bidPrice; // SELL order takes best bid price
+      quantity = offerQuantity;
+    }
+  }
+
+  // update the count
+  count++;
+
+  // Create the execution order
+  long visibleQuantity = quantity;
+  long hiddenQuantity = 0;
+  bool isChildOrder = false;
+  OrderType orderType = MARKET; // market order
+  ExecutionOrder<T> executionOrder(product, side, orderId, orderType, price, visibleQuantity, hiddenQuantity, parentOrderId, isChildOrder);
+
+  // Create the algo execution
+  Market market = BROKERTEC;
+  AlgoExecution<T> algoExecution(executionOrder, market);
+
+  // update the algo execution map
+  if (algoExecutionMap.find(key) != algoExecutionMap.end()) {algoExecutionMap.erase(key);}
+  algoExecutionMap.insert(pair<string, AlgoExecution<T>> (key, algoExecution));
+
+  // flow the data to listeners
+  for (auto& l : listeners) {
+    l -> ProcessAdd(algoExecution);
+  }
+}
 
 
+/**
+* Algo Execution Service Listener subscribing data from Market Data Service to Algo Execution Service.
+* Type T is the product type.
+*/
+template<typename T>
+class AlgoExecutionServiceListener : public ServiceListener<OrderBook<T>>
+{
+private:
+  AlgoExecutionService<T>* service;
 
+public:
+    // ctor
+    AlgoExecutionServiceListener(AlgoExecutionService<T>* _service);
+    // dtor
+    ~AlgoExecutionServiceListener()=default;
+    
+    // Listener callback to process an add event to the Service
+    void ProcessAdd(OrderBook<T> &data) override;
+    
+    // Listener callback to process a remove event to the Service
+    void ProcessRemove(OrderBook<T> &data) override;
+    
+    // Listener callback to process an update event to the Service
+    void ProcessUpdate(OrderBook<T> &data) override;
+    
+};
 
+template<typename T>
+AlgoExecutionServiceListener<T>::AlgoExecutionServiceListener(AlgoExecutionService<T>* _service)
+{
+  service = _service;
+}
 
+/**
+ * ProcessAdd() method is used by listener to subscribe data from Market Data Service to Algo Execution Service.
+ * It calls AlgoExecuteOrder() method, change the data type from OrderBook<T> to AlgoExecution<T> and notify the listeners.
+ */
+template<typename T>
+void AlgoExecutionServiceListener<T>::ProcessAdd(OrderBook<T> &data)
+{
+  service->AlgoExecuteOrder(data);
+}
 
+template<typename T>
+void AlgoExecutionServiceListener<T>::ProcessRemove(OrderBook<T> &data)
+{
+}
 
-
-
+template<typename T>
+void AlgoExecutionServiceListener<T>::ProcessUpdate(OrderBook<T> &data)
+{
+}
 
 
 #endif
