@@ -161,7 +161,7 @@ template<typename T>
 void GUIConnector<T>::Publish(Price<T> &data)
 {
     ofstream outFile;
-    outFile.open("gui.txt", ios::app);
+    outFile.open("../res/gui.txt", ios::app);
     // need overloading operator<< for Price<T>
     outFile << getTime() << "," << data << endl;
     outFile.close();

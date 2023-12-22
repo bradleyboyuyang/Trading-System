@@ -320,8 +320,8 @@ void AlgoExecutionService<T>::AlgoExecuteOrder(OrderBook<T>& _orderBook)
   // get the order book data
   T product = _orderBook.GetProduct();
   string key = product.GetProductId();
-  string orderId = "AlgoOrder" + GenerateRandomId(13);
-  string parentOrderId = "AlgoParentOrder" + GenerateRandomId(7);
+  string orderId = "Algo" + GenerateRandomId(11);
+  string parentOrderId = "AlgoParent" + GenerateRandomId(5);
 
   // get the best bid and offer order and their corresponding price and quantity
   BidOffer bidOffer = _orderBook.GetBestBidOffer();

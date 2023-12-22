@@ -192,10 +192,9 @@ void ExecutionServiceConnector<T>::Publish(const ExecutionOrder<T>& order, Marke
       case CME: tradeMarket = "CME"; break;
   }
   cout << "ExecutionOrder: \n"
-      <<"\tProduct: " << product.GetProductId() <<" OrderId: "<<order.GetOrderId()<< "Trade Market: " << tradeMarket << "\n"
-      <<"\tPricingSide: "<<(order.GetSide()==BID? "Bid":"Ask")
-      <<" OrderType: "<<order_type<<"\tIsChildOrder: "<<(order.IsChildOrder()?"True":"False")
-      <<"\n"
+      <<"\tProduct: " << product.GetProductId() <<"\tOrderId: "<<order.GetOrderId()<< "\tTrade Market: " << tradeMarket << "\n"
+      <<"\tPricingSide: "<<(order.GetSide()==BID? "Bid":"Offer")
+      <<"\tOrderType: "<<order_type<<"\t\tIsChildOrder: "<<(order.IsChildOrder()?"True":"False") <<"\n"
       <<"\tPrice: "<<order.GetPrice()<<"\tVisibleQuantity: "<<order.GetVisibleQuantity()
       <<"\tHiddenQuantity: "<<order.GetHiddenQuantity()<<endl<<endl;
 }

@@ -223,7 +223,7 @@ public:
   const vector<ServiceListener<OrderBook<T>>*>& GetListeners() const override;
 
   // Get the connector
-  MarketDataConnector<T>* GetConnector() const;
+  MarketDataConnector<T>* GetConnector();
 
   // Get the book depth
   int GetBookDepth() const;
@@ -282,7 +282,7 @@ const vector<ServiceListener<OrderBook<T>>*>& MarketDataService<T>::GetListeners
 }
 
 template<typename T>
-MarketDataConnector<T>* MarketDataService<T>::GetConnector() const
+MarketDataConnector<T>* MarketDataService<T>::GetConnector()
 {
   return connector;
 }

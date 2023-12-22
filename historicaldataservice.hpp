@@ -69,7 +69,7 @@ public:
 
   // Persist data to a store
   // call the connector to persist/publish data to an external store (such as KDB database)
-  void PersistData(string persistKey, const T& data);
+  void PersistData(string persistKey, T& data);
 
 };
 
@@ -78,6 +78,7 @@ HistoricalDataService<T>::HistoricalDataService(ServiceType _type)
 {
   type = _type;
   historicalservicelistener = new HistoricalDataServiceListener<T>(this); // listener related to this server
+  connector = new HistoricalDataConnector<T>(this); // connector related to this server
 }
 
 template<typename T>
@@ -129,7 +130,7 @@ ServiceType HistoricalDataService<T>::GetServiceType() const
 // call the connector to persist/publish data to an external store (such as KDB database)
 // NOTE: since data from different services are keyed by different keys, we need to pass in the key as function parameter as well
 template<typename T>
-void HistoricalDataService<T>::PersistData(string persistKey, const T& data)
+void HistoricalDataService<T>::PersistData(string persistKey, T& data)
 {
   // save position/risk/execution/inquiry/streaming data to the service
   if (dataMap.find(persistKey) == dataMap.end())
@@ -155,7 +156,7 @@ public:
   // ctor
   HistoricalDataConnector(HistoricalDataService<T>* _service);
   // Publish-only connector, publish to external source
-  void Publish(const T& data);
+  void Publish(T& data);
 };
 
 template<typename T>
@@ -171,7 +172,7 @@ HistoricalDataConnector<T>::HistoricalDataConnector(HistoricalDataService<T>* _s
  * into positions.txt, risk.txt, executions.txt, allinquiries.txt, streaming.txt
  */
 template<typename T>
-void HistoricalDataConnector<T>::Publish(const T& data)
+void HistoricalDataConnector<T>::Publish(T& data)
 {
   ServiceType type = service->GetServiceType();
   ofstream outFile;
@@ -179,19 +180,19 @@ void HistoricalDataConnector<T>::Publish(const T& data)
   switch (type)
   {
     case POSITION:
-      fileName = "positions.txt";
+      fileName = "../res/positions.txt";
       break;
     case RISK:
-      fileName = "risk.txt";
+      fileName = "../res/risk.txt";
       break;
     case EXECUTION:
-      fileName = "executions.txt";
+      fileName = "../res/executions.txt";
       break;
     case STREAMING:
-      fileName = "streaming.txt";
+      fileName = "../res/streaming.txt";
       break;
     case INQUIRY:
-      fileName = "allinquiries.txt";
+      fileName = "../res/allinquiries.txt";
       break;
     default:
       break;
@@ -224,7 +225,6 @@ public:
   void ProcessAdd(PriceStream<Bond>& data);
   void ProcessAdd(ExecutionOrder<Bond>& data);
   void ProcessAdd(Inquiry<Bond>& data);
-
 
   // Listener callback to process a remove event to the Service
   void ProcessRemove(T& data) override;
@@ -278,6 +278,7 @@ void HistoricalDataServiceListener<T>::ProcessAdd(Inquiry<Bond>& data)
     string persistKey = data.GetInquiryId();
     service->PersistData(persistKey, data);
 }
+
 
 template<typename T>
 void HistoricalDataServiceListener<T>::ProcessRemove(T& data)
