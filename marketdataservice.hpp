@@ -135,7 +135,7 @@ public:
   vector<Order>& GetOfferStack();
 
   // Get the best bid/offer order
-  const BidOffer& GetBestBidOffer() const;
+  BidOffer GetBestBidOffer() const;
 
 
 private:
@@ -177,7 +177,7 @@ vector<Order>& OrderBook<T>::GetOfferStack()
 }
 
 template<typename T>
-const BidOffer& OrderBook<T>::GetBestBidOffer() const
+BidOffer OrderBook<T>::GetBestBidOffer() const
 {
   // iterate bid stack and offer stack to find the best bid/offer order
   auto bestBid = std::max_element(bidStack.begin(), bidStack.end(), [](const Order& a, const Order& b) {return a.GetPrice() < b.GetPrice(); });

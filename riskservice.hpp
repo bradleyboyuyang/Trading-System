@@ -143,6 +143,10 @@ const string& BucketedSector<T>::GetName() const
   return name;
 }
 
+// forward declaration of RiskServiceListener
+template<typename T>
+class RiskServiceListener;
+
 
 /**
  * Risk Service to vend out risk for a particular security and across a risk bucketed sector.
@@ -155,6 +159,7 @@ class RiskService : public Service<string,PV01 <T> >
 private:
   vector<ServiceListener<PV01<T>>*> listeners;
   map<string, PV01<T>> pv01Map;
+  RiskServiceListener<T>* riskservicelistener;
 
 public:
   // ctor and dtor
@@ -174,6 +179,9 @@ public:
   // Get all listeners on the Service.
   const vector< ServiceListener<PV01<T>>* >& GetListeners() const;
 
+  // Get the special listener for risk service
+  RiskServiceListener<T>* GetRiskServiceListener();
+
   // Add a position that the service will risk
   void AddPosition(Position<T> &position);
 
@@ -185,6 +193,7 @@ public:
 template<typename T>
 RiskService<T>::RiskService()
 {
+  riskservicelistener = new RiskServiceListener<T>(this);
 }
 
 template<typename T>
@@ -212,6 +221,12 @@ template<typename T>
 const vector< ServiceListener<PV01<T>>* >& RiskService<T>::GetListeners() const
 {
   return listeners;
+}
+
+template<typename T>
+RiskServiceListener<T>* RiskService<T>::GetRiskServiceListener()
+{
+  return riskservicelistener;
 }
 
 template<typename T>

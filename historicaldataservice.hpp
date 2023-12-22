@@ -8,8 +8,12 @@
 #ifndef HISTORICAL_DATA_SERVICE_HPP
 #define HISTORICAL_DATA_SERVICE_HPP
 
-
 #include "soa.hpp"
+#include "streamingservice.hpp"
+#include "riskservice.hpp"
+#include "executionservice.hpp"
+#include "inquiryservice.hpp"
+#include "positionservice.hpp"
 #include "utils.hpp"
 
 enum ServiceType {POSITION, RISK, EXECUTION, STREAMING, INQUIRY};
@@ -18,7 +22,8 @@ enum ServiceType {POSITION, RISK, EXECUTION, STREAMING, INQUIRY};
 // pre declaration
 template<typename T>
 class HistoricalDataConnector;
-
+template<typename T>
+class HistoricalDataServiceListener;
 
 
 /**
@@ -34,11 +39,10 @@ private:
   vector<ServiceListener<T>*> listeners; // list of listeners to this service
   HistoricalDataConnector<T>* connector; // connector related to this server
   ServiceType type; // type of the service
-
+  HistoricalDataServiceListener<T>* historicalservicelistener; // listener to this service
 
 public:
   // ctor and dtor
-  HistoricalDataService();
   HistoricalDataService(ServiceType _type);  
   ~HistoricalDataService()=default;
 
@@ -54,6 +58,9 @@ public:
   // Get all listeners on the Service.
   const vector< ServiceListener<T>* >& GetListeners() const override;
 
+  // Get the special listener for historical data service
+  HistoricalDataServiceListener<T>* GetHistoricalDataServiceListener();
+
   // Get the connector
   HistoricalDataConnector<T>* GetConnector();
 
@@ -67,16 +74,10 @@ public:
 };
 
 template<typename T>
-HistoricalDataService<T>::HistoricalDataService()
-{
-  connector = new HistoricalDataConnector<T>(this); // connector related to this server
-}
-
-template<typename T>
 HistoricalDataService<T>::HistoricalDataService(ServiceType _type)
 {
   type = _type;
-  connector = new HistoricalDataConnector<T>(this); // connector related to this server
+  historicalservicelistener = new HistoricalDataServiceListener<T>(this); // listener related to this server
 }
 
 template<typename T>
@@ -104,6 +105,12 @@ template<typename T>
 const vector< ServiceListener<T>* >& HistoricalDataService<T>::GetListeners() const
 {
   return listeners;
+}
+
+template<typename T>
+HistoricalDataServiceListener<T>* HistoricalDataService<T>::GetHistoricalDataServiceListener()
+{
+  return historicalservicelistener;
 }
 
 template<typename T>
@@ -148,7 +155,7 @@ public:
   // ctor
   HistoricalDataConnector(HistoricalDataService<T>* _service);
   // Publish-only connector, publish to external source
-  void Publish(T& data) override;
+  void Publish(const T& data);
 };
 
 template<typename T>
@@ -164,7 +171,7 @@ HistoricalDataConnector<T>::HistoricalDataConnector(HistoricalDataService<T>* _s
  * into positions.txt, risk.txt, executions.txt, allinquiries.txt, streaming.txt
  */
 template<typename T>
-void HistoricalDataConnector<T>::Publish(T& data)
+void HistoricalDataConnector<T>::Publish(const T& data)
 {
   ServiceType type = service->GetServiceType();
   ofstream outFile;
@@ -212,7 +219,13 @@ public:
   // ctor
   HistoricalDataServiceListener(HistoricalDataService<T>* _service);
   // Listener callback to process an add event to the Service
-  void ProcessAdd(T& data) override;
+  void ProcessAdd(Position<Bond>& data);
+  void ProcessAdd(PV01<Bond>& data);
+  void ProcessAdd(PriceStream<Bond>& data);
+  void ProcessAdd(ExecutionOrder<Bond>& data);
+  void ProcessAdd(Inquiry<Bond>& data);
+
+
   // Listener callback to process a remove event to the Service
   void ProcessRemove(T& data) override;
   // Listener callback to process an update event to the Service
@@ -228,36 +241,42 @@ HistoricalDataServiceListener<T>::HistoricalDataServiceListener(HistoricalDataSe
 /**
  * Historical data service listener subscribes data from position, risk, execution, streaming and inquiry services.
  * ProcessAdd() thus calls PersistData() method to let connector persist/publish data to external data store (such as a KDB database)
+ * different services have different keys
+ * if the service type is POISITION, RISK, STREAMING, the key is the product identifier
 */
 template<typename T>
-void HistoricalDataServiceListener<T>::ProcessAdd(T& data)
+void HistoricalDataServiceListener<T>::ProcessAdd(Position<Bond>& data)
 {
-  ServiceType type = service->GetServiceType();
-  string persistKey;
-  // different services have different keys!
-  switch (type)
-  {
-    case POSITION:
-      persistKey = data.GetProduct().GetProductId();
-      break;
-    case RISK:
-      persistKey = data.GetProduct().GetProductId();
-      break;
-    case EXECUTION:
-      // data type: AlgoExecution<T>
-      persistKey = data.GetOrderId();
-      break;
-    case STREAMING:
-      persistKey = data.GetProduct().GetProductId();
-      break;
-    case INQUIRY:
-      // data type: Inquiry<T>
-      persistKey = data.GetInquiryId();
-      break;
-    default:
-      break;
-  }
+  string persistKey = data.GetProduct().GetProductId();
   service->PersistData(persistKey, data);
+}
+
+template<typename T>
+void HistoricalDataServiceListener<T>::ProcessAdd(PV01<Bond>& data)
+{
+  string persistKey = data.GetProduct().GetProductId();
+  service->PersistData(persistKey, data);
+}
+
+template<typename T>
+void HistoricalDataServiceListener<T>::ProcessAdd(PriceStream<Bond>& data)
+{
+  string persistKey = data.GetProduct().GetProductId();
+  service->PersistData(persistKey, data);
+}
+
+template<typename T>
+void HistoricalDataServiceListener<T>::ProcessAdd(ExecutionOrder<Bond>& data)
+{
+    string persistKey = data.GetOrderId();
+    service->PersistData(persistKey, data);
+}
+
+template<typename T>
+void HistoricalDataServiceListener<T>::ProcessAdd(Inquiry<Bond>& data)
+{
+    string persistKey = data.GetInquiryId();
+    service->PersistData(persistKey, data);
 }
 
 template<typename T>

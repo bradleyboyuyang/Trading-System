@@ -110,7 +110,7 @@ Side Trade<T>::GetSide() const
 template<typename T>
 class TradeBookingConnector;
 template<typename T>
-class TradeBookingListener;
+class TradeBookingServiceListener;
 
 /**
  * Trade Booking Service to book trades to a particular book.
@@ -124,7 +124,7 @@ private:
   map<string, Trade<T>> tradeMap; // store trade data keyed by trade id
   vector<ServiceListener<Trade<T>>*> listeners; // list of listeners to this service
   TradeBookingConnector<T>* connector;
-  TradeBookingListener<T>* tradebooklistener;
+  TradeBookingServiceListener<T>* tradebookinglistener;
 
 public:
   // ctor and dtor
@@ -148,7 +148,7 @@ public:
   TradeBookingConnector<T>* GetConnector();
 
   // Get associated trade book listener
-  TradeBookingListener<T>* GetTradeBookingListener();
+  TradeBookingServiceListener<T>* GetTradeBookingServiceListener();
 
   // Book the trade
   void BookTrade(Trade<T> &trade);
@@ -159,7 +159,7 @@ template<typename T>
 TradeBookingService<T>::TradeBookingService()
 {
   connector = new TradeBookingConnector<T>(this);
-  tradebooklistener = new TradeBookingListener<T>(this);
+  tradebookinglistener = new TradeBookingServiceListener<T>(this);
 }
 
 template<typename T>
@@ -200,9 +200,9 @@ TradeBookingConnector<T>* TradeBookingService<T>::GetConnector()
 }
 
 template<typename T>
-TradeBookingListener<T>* TradeBookingService<T>::GetTradeBookingListener()
+TradeBookingServiceListener<T>* TradeBookingService<T>::GetTradeBookingServiceListener()
 {
-  return tradebooklistener;
+  return tradebookinglistener;
 }
 
 
@@ -292,7 +292,7 @@ void TradeBookingConnector<T>::Subscribe(const string& dataFile)
  * method to publish the Trade<T> data to Trade Booking Service.
  */
 template<typename T>
-class TradeBookingListener : public ServiceListener<ExecutionOrder<T>>
+class TradeBookingServiceListener : public ServiceListener<ExecutionOrder<T>>
 {
 private:
   TradeBookingService<T>* service;
@@ -300,9 +300,9 @@ private:
 
 public:
   // ctor
-  TradeBookingListener(TradeBookingService<T>* _service);
+  TradeBookingServiceListener(TradeBookingService<T>* _service);
   // dtor
-  ~TradeBookingListener()=default;
+  ~TradeBookingServiceListener()=default;
 
   // Listener callback to process an add event to the Service
   void ProcessAdd(ExecutionOrder<T> &data) override;
@@ -316,7 +316,7 @@ public:
 };
 
 template<typename T>
-TradeBookingListener<T>::TradeBookingListener(TradeBookingService<T>* _service)
+TradeBookingServiceListener<T>::TradeBookingServiceListener(TradeBookingService<T>* _service)
 {
   service = _service;
   count = 0;
@@ -328,7 +328,7 @@ TradeBookingListener<T>::TradeBookingListener(TradeBookingService<T>* _service)
  * and then call BookTrade() method to publish the Trade<T> data to Trade Booking Service.
  */
 template<typename T>
-void TradeBookingListener<T>::ProcessAdd(ExecutionOrder<T> &data)
+void TradeBookingServiceListener<T>::ProcessAdd(ExecutionOrder<T> &data)
 {
   T product = data.GetProduct();
   string orderId = data.GetOrderId();
@@ -369,12 +369,12 @@ void TradeBookingListener<T>::ProcessAdd(ExecutionOrder<T> &data)
 }
 
 template<typename T>
-void TradeBookingListener<T>::ProcessRemove(ExecutionOrder<T> &data)
+void TradeBookingServiceListener<T>::ProcessRemove(ExecutionOrder<T> &data)
 {
 }
 
 template<typename T>
-void TradeBookingListener<T>::ProcessUpdate(ExecutionOrder<T> &data)
+void TradeBookingServiceListener<T>::ProcessUpdate(ExecutionOrder<T> &data)
 {
 }
 

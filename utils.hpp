@@ -225,7 +225,7 @@ string GenerateRandomId(long length)
  * 1. Generate prices that oscillate between 99 and 101 and write to prices.txt
  * 2. Generate order book data with fivel levels of bids and offers and write to marketdata.txt
  */
-void genOrderBook(const vector<string>& products, const string& priceFile, const string& orderbookFile, long long seed) {
+void genOrderBook(const vector<string>& products, const string& priceFile, const string& orderbookFile, long long seed, const int numDataPoints) {
     std::ofstream pFile(priceFile);
     std::ofstream oFile(orderbookFile);
     std::mt19937 gen(seed);
@@ -246,7 +246,7 @@ void genOrderBook(const vector<string>& products, const string& priceFile, const
         string timestamp;
 
         // number of data points
-        for (int i = 0; i < 1000; ++i) {
+        for (int i = 0; i < numDataPoints; ++i) {
 
             // generate price data
             double randomSpread = genRandomSpread(gen);

@@ -204,6 +204,11 @@ const PriceStream<T>& AlgoStream<T>::GetPriceStream() const
   return priceStream;
 }
 
+// forward declaration
+template<typename T>
+class AlgoStreamingServiceListener;
+
+
 /**
  * Algo Streaming Service to publish algo streams.
  * Keyed on product identifier.
@@ -215,6 +220,7 @@ class AlgoStreamingService : public Service<string,AlgoStream <T> >
 private:
   map<string, AlgoStream<T>> algoStreamMap; // store algo stream data keyed by product identifier
   vector<ServiceListener<AlgoStream<T>>*> listeners; // list of listeners to this service
+  AlgoStreamingServiceListener<T>* algostreamlistener;
   long count;
 
 public:
@@ -234,6 +240,9 @@ public:
     // Get all listeners on the Service.
     const vector< ServiceListener<AlgoStream<T>>* >& GetListeners() const override;
     
+    // Get the special listener for algo streaming service
+    AlgoStreamingServiceListener<T>* GetAlgoStreamingListener();
+
     // Publish algo streams (called by algo streaming service listener to subscribe data from pricing service)
     void PublishAlgoStream(const Price<T>& price);
     
@@ -242,6 +251,7 @@ public:
 template<typename T>
 AlgoStreamingService<T>::AlgoStreamingService()
 {
+  algostreamlistener = new AlgoStreamingServiceListener<T>(this);
 }
 
 template<typename T>
@@ -269,6 +279,12 @@ template<typename T>
 const vector< ServiceListener<AlgoStream<T>>* >& AlgoStreamingService<T>::GetListeners() const
 {
   return listeners;
+}
+
+template<typename T>
+AlgoStreamingServiceListener<T>* AlgoStreamingService<T>::GetAlgoStreamingListener()
+{
+  return algostreamlistener;
 }
 
 /**

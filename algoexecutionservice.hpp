@@ -158,7 +158,7 @@ ostream& operator<<(ostream& os, const ExecutionOrder<T>& order)
       case STOP: _orderType = "STOP"; break;
       case IOC: _orderType = "IOC"; break;
   }
-  string _price = ConvertPrice(order.GetPrice());
+  string _price = convertPrice(order.GetPrice());
   string _visibleQuantity = to_string(order.GetVisibleQuantity());
   string _hiddenQuantity = to_string(order.GetHiddenQuantity());
   string _parentOrderId = order.GetParentOrderId();
@@ -222,6 +222,11 @@ Market AlgoExecution<T>::GetMarket() const
   return market;
 }
 
+// forward declaration of AlgoExecutionServiceListener
+template<typename T>
+class AlgoExecutionServiceListener;
+
+
 /**
  * Algo Execution Service to execute orders on market.
  * Keyed on product identifier.
@@ -233,6 +238,7 @@ class AlgoExecutionService : public Service<string, AlgoExecution<T>>
 private:
   map<string, AlgoExecution<T>> algoExecutionMap; // store algo execution data keyed by product identifier
   vector<ServiceListener<AlgoExecution<T>>*> listeners; // list of listeners to this service
+  AlgoExecutionServiceListener<T>* algoexecservicelistener;
   double spread;
   long count;
 
@@ -254,6 +260,9 @@ public:
     // Get all listeners on the Service.
     const vector< ServiceListener<AlgoExecution<T>>* >& GetListeners() const override;
     
+    // Get the special listener for algo execution service
+    AlgoExecutionServiceListener<T>* GetAlgoExecutionServiceListener();
+
     // Execute an algo order on a market, called by AlgoExecutionServiceListener to subscribe data from Algo Market Data Service to Algo Execution Service
     void AlgoExecuteOrder(OrderBook<T>& _orderBook);
     
@@ -263,6 +272,7 @@ template<typename T>
 AlgoExecutionService<T>::AlgoExecutionService()
 {
   count = 0;
+  algoexecservicelistener = new AlgoExecutionServiceListener<T>(this); // listener related to this server
 }
 
 template<typename T>
@@ -290,6 +300,12 @@ template<typename T>
 const vector< ServiceListener<AlgoExecution<T>>* >& AlgoExecutionService<T>::GetListeners() const
 {
   return listeners;
+}
+
+template<typename T>
+AlgoExecutionServiceListener<T>* AlgoExecutionService<T>::GetAlgoExecutionServiceListener()
+{
+  return algoexecservicelistener;
 }
 
 /**

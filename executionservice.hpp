@@ -13,12 +13,14 @@
 #include "algoexecutionservice.hpp"
 
 /**
- * Forward declaration of ExecutionServiceConnector
+ * Forward declaration of ExecutionServiceConnector and ExecutionServiceListener.
  * As described, execution service needs a publish-only connector to publish executions 
  * Type T is the product type.
  */
 template<typename T>
 class ExecutionServiceConnector;
+template<typename T>
+class ExecutionServiceListener;
 
 
 /**
@@ -33,6 +35,7 @@ private:
   map<string, ExecutionOrder<T>> executionOrderMap; // store execution order data keyed by product identifier
   vector<ServiceListener<ExecutionOrder<T>>*> listeners; // list of listeners to this service
   ExecutionServiceConnector<T>* connector; // connector related to this server
+  ExecutionServiceListener<T>* executionservicelistener; // listener related to this server
 
 public:
   // ctor and dtor
@@ -51,6 +54,9 @@ public:
   // Get all listeners on the Service.
   const vector< ServiceListener<ExecutionOrder<T>>* >& GetListeners() const override;
 
+  // Get the special listener for execution service
+  ExecutionServiceListener<T>* GetExecutionServiceListener();
+
   // Get the connector
   ExecutionServiceConnector<T>* GetConnector();
 
@@ -65,6 +71,7 @@ public:
 template<typename T>
 ExecutionService<T>::ExecutionService()
 {
+  executionservicelistener = new ExecutionServiceListener<T>(this);
 }
 
 template<typename T>
@@ -92,6 +99,12 @@ template<typename T>
 const vector< ServiceListener<ExecutionOrder<T>>* >& ExecutionService<T>::GetListeners() const
 {
   return listeners;
+}
+
+template<typename T>
+ExecutionServiceListener<T>* ExecutionService<T>::GetExecutionServiceListener()
+{
+  return executionservicelistener;
 }
 
 template<typename T>
@@ -145,7 +158,7 @@ public:
   ~ExecutionServiceConnector()=default;
 
   // Publish data to the Connector
-  void Publish(ExecutionOrder<T>& order, Market& market) override;
+  void Publish(const ExecutionOrder<T>& order, Market& market);
 
   // No Subscribe() method for publish-only connector
 };
@@ -160,7 +173,7 @@ ExecutionServiceConnector<T>::ExecutionServiceConnector(ExecutionService<T>* _se
  * Publish() method is used by publish-only connector to publish executions.
  */
 template<typename T>
-void ExecutionServiceConnector<T>::Publish(ExecutionOrder<T>& order, Market& market)
+void ExecutionServiceConnector<T>::Publish(const ExecutionOrder<T>& order, Market& market)
 {
   // print the execution order data
   auto product = order.GetProduct();

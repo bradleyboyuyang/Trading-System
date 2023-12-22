@@ -11,13 +11,16 @@
 #include "algostreamingservice.hpp"
 
 /**
- * Forward declaration of StreamingServiceConnector
+ * Forward declaration of StreamingServiceConnector and StreamingServiceListener.
  * As described, streaming service needs a publish-only connector to publish streams (which notify the listener and print the execution data)
  * into a separate process which listens to the streams on the socket via its own Connector.
  * Type T is the product type.
  */
 template<typename T>
 class StreamingServiceConnector;
+template<typename T>
+class StreamingServiceListener;
+
 
 
 /**
@@ -32,6 +35,7 @@ private:
   map<string, PriceStream<T>> priceStreamMap; // store price stream data keyed by product identifier
   vector<ServiceListener<PriceStream<T>>*> listeners; // list of listeners to this service
   StreamingServiceConnector<T>* connector; // connector related to this server
+  StreamingServiceListener<T>* streamingservicelistener; // listener related to this server
 
 public:
   // ctor and dtor
@@ -50,6 +54,9 @@ public:
   // Get all listeners on the Service.
   const vector< ServiceListener<PriceStream<T>>* >& GetListeners() const override;
 
+  // Get the special listener for streaming service
+  StreamingServiceListener<T>* GetStreamingServiceListener();
+
   // Get the connector
   StreamingServiceConnector<T>* GetConnector();
 
@@ -64,6 +71,7 @@ public:
 template<typename T>
 StreamingService<T>::StreamingService()
 {
+  streamingservicelistener = new StreamingServiceListener<T>(this); // listener related to this server
 }
 
 template<typename T>
@@ -91,6 +99,12 @@ template<typename T>
 const vector< ServiceListener<PriceStream<T>>* >& StreamingService<T>::GetListeners() const
 {
   return listeners;
+}
+
+template<typename T>
+StreamingServiceListener<T>* StreamingService<T>::GetStreamingServiceListener()
+{
+  return streamingservicelistener;
 }
 
 template<typename T>
@@ -139,7 +153,7 @@ public:
   ~StreamingServiceConnector()=default;
 
   // Publish data to the Connector
-  void Publish(const PriceStream<T>& data) override;
+  void Publish(const PriceStream<T>& data);
 
 };
 
