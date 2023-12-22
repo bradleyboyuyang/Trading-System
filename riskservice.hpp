@@ -21,6 +21,8 @@ class PV01
 
 public:
 
+  // Default ctor
+  PV01() = default;
   // ctor for a PV01 value
   PV01(const T &_product, double _pv01, long _quantity);
 
@@ -84,7 +86,9 @@ ostream& operator<<(ostream& os, const PV01<T>& pv01)
 {
   T product = pv01.GetProduct();
 	string _product = product.GetProductId();
-	string _pv01 = to_string(pv01);
+  double pv01_value = pv01.GetPV01();
+  long quantity = pv01.GetQuantity();
+	string _pv01 = to_string(pv01_value);
 	string _quantity = to_string(quantity);
 
 	vector<string> _strings;
@@ -174,7 +178,7 @@ public:
   void AddPosition(Position<T> &position);
 
   // Get the bucketed risk for the bucket sector
-  const PV01< BucketedSector<T> >& GetBucketedRisk(const BucketedSector<T> &sector) const = 0;
+  const PV01< BucketedSector<T> >& GetBucketedRisk(const BucketedSector<T> &sector) const;
 
 };
 

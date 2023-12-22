@@ -99,7 +99,7 @@ ostream& operator<<(ostream& os, const Position<T>& position)
   T product = position.GetProduct();
   string productId = product.GetProductId();
 	vector<string> _positions;
-	for (auto& p : positions)
+	for (auto& p : position.bookPositionMap)
 	{
 		string _book = p.first;
 		string _position = to_string(p.second);
@@ -119,7 +119,7 @@ template<typename T>
 class PositionServiceListener;
 
 /**
- * Position Service to manage positions across multiple books and secruties.
+ * Position Service to manage positions across multiple books and securities.
  * Keyed on product identifier.
  * Type T is the product type.
  */
@@ -170,7 +170,7 @@ Position<T>& PositionService<T>::GetData(string key)
 }
 
 /**
- * OnMessage() used to be called by an input connector to subscribe data from outside
+ * OnMessage() used to be called by an input connector to subscribe data from socket
  * no need to implement here.
  */
 template<typename T>

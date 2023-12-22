@@ -221,7 +221,7 @@ void TradeBookingService<T>::BookTrade(Trade<T> &trade)
 }
 
 /**
-* Trade Booking Connector subscribing data to Trading Booking Service.
+* Connector that subscribes data from socket to trade booking service.
 * Type T is the product type.
 */
 template<typename T>
@@ -280,7 +280,7 @@ void TradeBookingConnector<T>::Subscribe(const string& dataFile)
     Side side = tokens[5] == "BUY" ? BUY : SELL;
     Trade<T> trade(product, tradeId, price, book, quantity, side);
 
-    // publish the trade
+    // flows data to trade booking service
     service->OnMessage(trade);
   }
 }
@@ -288,8 +288,8 @@ void TradeBookingConnector<T>::Subscribe(const string& dataFile)
 /**
  * Trade Booking Execution Listener subscribing from execution service.
  * Basically, this listener is used to subscribe data from execution service,
- * then transfer the ExecutionOrder<T> data to Trade<T> data, and finally
- * call BookTrade() method to publish the Trade<T> data to Trade Booking Service.
+ * transfer the ExecutionOrder<T> data to Trade<T> data, and call BookTrade()
+ * method to publish the Trade<T> data to Trade Booking Service.
  */
 template<typename T>
 class TradeBookingListener : public ServiceListener<ExecutionOrder<T>>

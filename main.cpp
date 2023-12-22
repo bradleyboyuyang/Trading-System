@@ -27,44 +27,36 @@
 
 using namespace std;
 
-
-
-
 int main(int, char**){
-	// price data path
+	// 1. Define data path and generate data
 	const string pricePath = "../data/prices.txt";
-	// market data path
 	const string marketDataPath = "../data/marketdata.txt";
-	// trade data path
 	const string tradePath = "../data/trades.txt";
-	// inquiry data path
 	const string inquiryPath = "../data/inquiries.txt";
 
-
-	// generate price and orderbook data
     log(LogLevel::INFO, "Generating price and orderbook data...");
     vector<string> bonds = {"9128283H1", "9128283L2", "912828M80", "9128283J7", "9128283F5", "912810TW8", "912810RZ3"};
     genOrderBook(bonds, pricePath, marketDataPath, 42);
-	// generate trade data
+    log(LogLevel::INFO, "Generating trade data...");
 	genTrades(bonds, tradePath, 42);
-	// generate inquiry data
+    log(LogLevel::INFO, "Generating inquiry data...");
 	genInquiries(bonds, inquiryPath, 42);
+    log(LogLevel::INFO, "Generating data finished.");
 
-    // start trading system
-    log(LogLevel::INFO, "Trading System starts running...");
-
+    // 2. Start trading system
+    log(LogLevel::INFO, "Starting trading system...");
     // create services
     log(LogLevel::INFO, "Creating trading services...");
 	PricingService<Bond> pricingService;
 	MarketDataService<Bond> marketDataService;
 	TradeBookingService<Bond> tradeBookingService;
 	PositionService<Bond> positionService;
-	// RiskService<Bond> riskService;
-	// AlgoExecutionService<Bond> algoExecutionService;
-	// AlgoStreamingService<Bond> algoStreamingService;
-	// GUIService<Bond> guiService;
-	// ExecutionService<Bond> executionService;
-	// StreamingService<Bond> streamingService;
+	RiskService<Bond> riskService;
+	AlgoExecutionService<Bond> algoExecutionService;
+	AlgoStreamingService<Bond> algoStreamingService;
+	GUIService<Bond> guiService;
+	ExecutionService<Bond> executionService;
+	StreamingService<Bond> streamingService;
 	InquiryService<Bond> inquiryService;
 
 	log(LogLevel::INFO, "Trading services created");

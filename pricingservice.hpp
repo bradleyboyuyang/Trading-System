@@ -77,8 +77,10 @@ ostream& operator<<(ostream& os, const Price<T>& price)
 {
   T product = price.GetProduct();
 	string _product = product.GetProductId();
-	string _mid = ConvertPrice(mid);
-	string _bidOfferSpread = ConvertPrice(bidOfferSpread);
+  double mid = price.GetMid();
+  double bidOfferSpread = price.GetBidOfferSpread();
+	string _mid = convertPrice(mid);
+	string _bidOfferSpread = convertPrice(bidOfferSpread);
 
 	vector<string> _strings;
 	_strings.push_back(_product);
@@ -132,7 +134,7 @@ public:
 
 };
 
-template <typename T>
+template<typename T>
 PricingService<T>::PricingService()
 {
   connector = new PricingConnector<T>(this); // connector related to this server
@@ -180,7 +182,7 @@ PricingConnector<T>* PricingService<T>::GetConnector()
 
 
 /**
- * PricingConnector: publish data to pricing service.
+ * PricingConnector: an inbound connector that subscribes data from socket to pricing service.
  * Type T is the product type.
  */
 template<typename T>
@@ -196,7 +198,7 @@ public:
   ~PricingConnector()=default;
 
   // Publish data to the Connector
-  // If subscribe-only, then this does nothing
+  // If subscribe-only, this does nothing
   void Publish(Price<T> &data) override;
 
   // Subscribe data
@@ -210,7 +212,7 @@ PricingConnector<T>::PricingConnector(PricingService<T>* _service)
 {
 }
 
-// The price connector is subscribe-only, hence does nothing
+// inbound connector, does nothing
 template <typename T>
 void PricingConnector<T>::Publish(Price<T> &data)
 { 
@@ -246,7 +248,8 @@ void PricingConnector<T>::Subscribe(const string& dataFile)
       T product = getProductObject<T>(productId);
       // create price object based on product, mid price and bid/offer spread
       Price<T> price(product, mid, spread);
-      // publish price object to the service
+
+      // flows data to pricing service
       service->OnMessage(price);
     }
   }

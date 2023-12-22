@@ -169,6 +169,7 @@ ostream& operator<<(ostream& os, const PriceStream<T>& priceStream)
   PriceStreamOrder bidOrder = priceStream.GetBidOrder();
   PriceStreamOrder offerOrder = priceStream.GetOfferOrder();
   os << productId << "," << bidOrder << "," << offerOrder;
+  return os;
 }
 
 /**
