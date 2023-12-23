@@ -30,7 +30,7 @@ using namespace std;
 
 int main(int, char**){
 
-	// 1. Define data path and generate data
+	// 1. define data path and generate data
 	// 1.1 create folders that store data and results
 	string dataPath = "../data";
 	if (filesystem::exists(dataPath)) {
@@ -54,14 +54,14 @@ int main(int, char**){
 	// tickers
     vector<string> bonds = {"9128283H1", "9128283L2", "912828M80", "9128283J7", "9128283F5", "912810TW8", "912810RZ3"};
 	// generate price and orderbook data (specify random seed and number of data points)
-    genOrderBook(bonds, pricePath, marketDataPath, 39373, 10000);
+    genOrderBook(bonds, pricePath, marketDataPath, 39373, 5000);
     log(LogLevel::INFO, "Generating trade data...");
 	genTrades(bonds, tradePath, 39373);
     log(LogLevel::INFO, "Generating inquiry data...");
 	genInquiries(bonds, inquiryPath, 39373);
     log(LogLevel::INFO, "Generating data finished.");
 
-    // 2. Start trading service
+    // 2. start trading service
     log(LogLevel::INFO, "Starting trading system...");
     // 2.1 create services
     log(LogLevel::INFO, "Initializing service components...");
@@ -102,7 +102,7 @@ int main(int, char**){
 	inquiryService.AddListener(historicalInquiryService.GetHistoricalDataServiceListener());
 	log(LogLevel::INFO, "Service listeners linked.");
 
-	// 3. Start trading system data flows
+	// 3. start trading system data flows
 	// 3.1 price data -> pricing service -> algo streaming service -> streaming service -> historical data service
 	// another data flow: pricing service -> GUI service -> GUI data output
 	cout << fixed << setprecision(6);

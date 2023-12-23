@@ -1,8 +1,5 @@
 /.vscode
 
-# ignore too large data files
-*.txt
-
 # ignore all files in the build directory
 /build
 
