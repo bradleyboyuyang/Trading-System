@@ -9,22 +9,23 @@
 #include <string>
 #include <iomanip>
 #include <filesystem>
+#include <thread>
 
-#include "soa.hpp"
-#include "products.hpp"
-#include "marketdataservice.hpp"
-#include "pricingservice.hpp"
-#include "riskservice.hpp"
-#include "executionservice.hpp"
-#include "positionservice.hpp"
-#include "inquiryservice.hpp"
-#include "historicaldataservice.hpp"
-#include "streamingservice.hpp"
-#include "algostreamingservice.hpp"
-#include "tradebookingservice.hpp"
-#include "algoexecutionservice.hpp"
-#include "guiservice.hpp"
-#include "utils.hpp"
+#include "headers/soa.hpp"
+#include "headers/products.hpp"
+#include "headers/marketdataservice.hpp"
+#include "headers/pricingservice.hpp"
+#include "headers/riskservice.hpp"
+#include "headers/executionservice.hpp"
+#include "headers/positionservice.hpp"
+#include "headers/inquiryservice.hpp"
+#include "headers/historicaldataservice.hpp"
+#include "headers/streamingservice.hpp"
+#include "headers/algostreamingservice.hpp"
+#include "headers/tradebookingservice.hpp"
+#include "headers/algoexecutionservice.hpp"
+#include "headers/guiservice.hpp"
+#include "headers/utils.hpp"
 
 using namespace std;
 
@@ -63,26 +64,27 @@ int main(int, char**){
 
     // 2. start trading service
     log(LogLevel::INFO, "Starting trading system...");
-    // 2.1 create services
+    // 2.1 create four servers with host adn different ports
     log(LogLevel::INFO, "Initializing service components...");
-	PricingService<Bond> pricingService;
+	PricingService<Bond> pricingService("localhost", "3000");
+	MarketDataService<Bond> marketDataService("localhost", "3001");
+	TradeBookingService<Bond> tradeBookingService("localhost", "3002");
+	InquiryService<Bond> inquiryService("localhost", "3003");
+
 	AlgoStreamingService<Bond> algoStreamingService;
 	StreamingService<Bond> streamingService;
-	MarketDataService<Bond> marketDataService;
 	AlgoExecutionService<Bond> algoExecutionService;
 	ExecutionService<Bond> executionService;
-	TradeBookingService<Bond> tradeBookingService;
 	PositionService<Bond> positionService;
 	RiskService<Bond> riskService;
 	GUIService<Bond> guiService;
-	InquiryService<Bond> inquiryService;
 
 	HistoricalDataService<Position<Bond>> historicalPositionService(POSITION);
 	HistoricalDataService<PV01<Bond>> historicalRiskService(RISK);
 	HistoricalDataService<ExecutionOrder<Bond>> historicalExecutionService(EXECUTION);
 	HistoricalDataService<PriceStream<Bond>> historicalStreamingService(STREAMING);
 	HistoricalDataService<Inquiry<Bond>> historicalInquiryService(INQUIRY);
-	log(LogLevel::INFO, "Trading services initialized.");
+	log(LogLevel::INFO, "Trading service initialized.");
 
 	// 2.2 create listeners
 	log(LogLevel::INFO, "Linking service listeners...");
@@ -103,27 +105,25 @@ int main(int, char**){
 	log(LogLevel::INFO, "Service listeners linked.");
 
 	// 3. start trading system data flows
+	cout << fixed << setprecision(6);
+
 	// 3.1 price data -> pricing service -> algo streaming service -> streaming service -> historical data service
 	// another data flow: pricing service -> GUI service -> GUI data output
-	cout << fixed << setprecision(6);
-    log(LogLevel::INFO, "Processing price data...");
-	pricingService.GetConnector()->Subscribe(pricePath);
-	log(LogLevel::INFO, "Price data processed");
+	pricingService.GetConnector()->Subscribe(); // subscribe from the socket
 
 	// 3.2 orderbook data -> market data service -> algo execution service -> execution service -> historical data service
 	// another data flow: execution service -> trade booking service -> position service -> risk service -> historical data service
 	log(LogLevel::INFO, "Processing market data...");
-	marketDataService.GetConnector()->Subscribe(marketDataPath);
+	marketDataService.GetConnector()->Subscribe();
 	log(LogLevel::INFO, "Market data processed");
 
 	// 3.3 trade data -> trade booking service -> position service -> risk service -> historical data service
 	log(LogLevel::INFO, "Processing trade data...");
-	tradeBookingService.GetConnector()->Subscribe(tradePath);
+	tradeBookingService.GetConnector()->Subscribe();
 	log(LogLevel::INFO, "Trade data processed");
 
 	// 3.4 inquiry data -> inquiry service -> historical data service
 	log(LogLevel::INFO, "Processing inquiry data...");
-	inquiryService.GetConnector()->Subscribe(inquiryPath);
+	inquiryService.GetConnector()->Subscribe();
 	log(LogLevel::INFO, "Inquiry data processed");
-
 }
