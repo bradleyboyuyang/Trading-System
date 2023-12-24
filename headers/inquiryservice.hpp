@@ -379,25 +379,40 @@ template<typename T>
 void InquiryDataConnector<T>::handle_read(const boost::system::error_code& ec, std::size_t length, boost::asio::ip::tcp::socket* socket, boost::asio::streambuf* request) {
   if (!ec) {
     std::string data = std::string(boost::asio::buffers_begin(request->data()), boost::asio::buffers_end(request->data()));
-    request->consume(length); // remove the processed data from the buffer
-
-    // parse the line
-    vector<string> tokens;
-    stringstream ss(data);
-    string token;
-    while (getline(ss, token, ',')) {
-      tokens.push_back(token);
+    // find the last newline
+    std::size_t last_newline = data.rfind('\n');
+    if (last_newline != std::string::npos) {
+      // consume only up to the last newline
+      request->consume(last_newline + 1);
+      // only process the data up to the last newline
+      data = data.substr(0, last_newline);
+    } else {
+      // if there's no newline, don't process any data
+      data.clear();
     }
-    // create inquiry
-    string inquiryId = tokens[0];
-    string productId = tokens[1];
-    T product = getProductObject<T>(productId);
-    Side side = tokens[2] == "BUY" ? BUY : SELL;
-    long quantity = stol(tokens[3]);
-    double price = convertPrice(tokens[4]);
-    InquiryState state = tokens[5] == "RECEIVED" ? RECEIVED : tokens[5] == "QUOTED" ? QUOTED : tokens[5] == "DONE" ? DONE : tokens[5] == "REJECTED" ? REJECTED : CUSTOMER_REJECTED;
-    Inquiry<T> inquiry(inquiryId, product, side, quantity, price, state);
-    service->OnMessage(inquiry);
+
+    // split the data into lines
+    std::stringstream ss(data);
+    std::string line;
+    while (std::getline(ss, line)) {
+      // parse the line
+      vector<string> tokens;
+      stringstream lineStream(line);
+      string token;
+      while(getline(lineStream, token, ','))
+        tokens.push_back(token);
+
+      // create inquiry
+      string inquiryId = tokens[0];
+      string productId = tokens[1];
+      T product = getProductObject<T>(productId);
+      Side side = tokens[2] == "BUY" ? BUY : SELL;
+      long quantity = stol(tokens[3]);
+      double price = convertPrice(tokens[4]);
+      InquiryState state = tokens[5] == "RECEIVED" ? RECEIVED : tokens[5] == "QUOTED" ? QUOTED : tokens[5] == "DONE" ? DONE : tokens[5] == "REJECTED" ? REJECTED : CUSTOMER_REJECTED;
+      Inquiry<T> inquiry(inquiryId, product, side, quantity, price, state);
+      service->OnMessage(inquiry);
+    }
 
     boost::asio::async_read_until(*socket, *request, "\n", std::bind(&InquiryDataConnector<T>::handle_read, this, std::placeholders::_1, std::placeholders::_2, socket, request));
   } else {

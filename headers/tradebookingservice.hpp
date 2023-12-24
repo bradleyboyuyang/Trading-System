@@ -283,28 +283,43 @@ template<typename T>
 void TradeDataConnector<T>::handle_read(const boost::system::error_code& ec, std::size_t length, boost::asio::ip::tcp::socket* socket, boost::asio::streambuf* request) {
   if (!ec) {
     std::string data = std::string(boost::asio::buffers_begin(request->data()), boost::asio::buffers_end(request->data()));
-    request->consume(length); // remove the processed data from the buffer
+    // find the last newline
+    std::size_t last_newline = data.rfind('\n');
+    if (last_newline != std::string::npos) {
+      // consume only up to the last newline
+      request->consume(last_newline + 1);
+      // only process the data up to the last newline
+      data = data.substr(0, last_newline);
+    } else {
+      // if there's no newline, don't process any data
+      data.clear();
+    }
 
-    // parse the line
-    vector<string> tokens;
-    stringstream ss(data);
-    string token;
-    while(getline(ss, token, ','))
-      tokens.push_back(token);
+    // split the data into lines
+    std::stringstream ss(data);
+    std::string line;
+    while (std::getline(ss, line)) {
+      // parse the line
+      vector<string> tokens;
+      stringstream lineStream(line);
+      string token;
+      while(getline(lineStream, token, ','))
+        tokens.push_back(token);
 
-    // create a trade object
-    string productId = tokens[0];
-    // create product object based on product id
-    T product = getProductObject<T>(productId);
-    string tradeId = tokens[1];
-    double price = convertPrice(tokens[2]);
-    string book = tokens[3];
-    long quantity = stol(tokens[4]);
-    Side side = tokens[5] == "BUY" ? BUY : SELL;
-    Trade<T> trade(product, tradeId, price, book, quantity, side);
+      // create a trade object
+      string productId = tokens[0];
+      // create product object based on product id
+      T product = getProductObject<T>(productId);
+      string tradeId = tokens[1];
+      double price = convertPrice(tokens[2]);
+      string book = tokens[3];
+      long quantity = stol(tokens[4]);
+      Side side = tokens[5] == "BUY" ? BUY : SELL;
+      Trade<T> trade(product, tradeId, price, book, quantity, side);
 
-    // flows data to trade booking service
-    service->OnMessage(trade);
+      // flows data to trade booking service
+      service->OnMessage(trade);
+    }
 
     boost::asio::async_read_until(*socket, *request, "\n", std::bind(&TradeDataConnector<T>::handle_read, this, std::placeholders::_1, std::placeholders::_2, socket, request));
   } else {

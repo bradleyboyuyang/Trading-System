@@ -1,7 +1,15 @@
 /**
  * main.hpp
- * Main function to run the trading system
- *
+ * Main function to start six trading system servers
+ * 
+ * External data flows in the system through:
+ * 	1. price data -> pricing service -> algo streaming service -> streaming service -> historical data service
+	   (another data flow: pricing service -> GUI service -> GUI data output)
+ * 	2. orderbook data -> market data service -> algo execution service -> execution service -> historical data service
+ * 	   (another data flow: execution service -> trade booking service -> position service -> risk service -> historical data service)
+ * 	3. trade data -> trade booking service -> position service -> risk service -> historical data service
+ * 	4. inquiry data -> inquiry service -> historical data service
+ * 	
  * @author Boyu Yang
  */
 
@@ -28,6 +36,13 @@
 #include "headers/utils.hpp"
 
 using namespace std;
+
+// server thread function
+template<typename T>
+void Server(T& service)
+{
+	service.GetConnector()->Subscribe();
+}
 
 int main(int, char**){
 
@@ -104,26 +119,20 @@ int main(int, char**){
 	inquiryService.AddListener(historicalInquiryService.GetHistoricalDataServiceListener());
 	log(LogLevel::INFO, "Service listeners linked.");
 
-	// 3. start trading system data flows
+	// 3. start six system servers in different threads: 
+	// input (price, orderbook, trade, inquiry) and output (streaming, execution)
 	cout << fixed << setprecision(6);
+	vector<thread> threads;
+	threads.push_back(thread(Server<PricingService<Bond>>, ref(pricingService))); // input price server
+	threads.push_back(thread(Server<MarketDataService<Bond>>, ref(marketDataService))); // input orderbook server
+	threads.push_back(thread(Server<TradeBookingService<Bond>>, ref(tradeBookingService))); // input trade server
+	threads.push_back(thread(Server<InquiryService<Bond>>, ref(inquiryService))); // input inquiry server
+	// threads.push_back(thread(Server<StreamingService<Bond>>, ref(streamingService))); // output streaming server
+	// threads.push_back(thread(Server<ExecutionService<Bond>>, ref(executionService))); // output execution server
 
-	// 3.1 price data -> pricing service -> algo streaming service -> streaming service -> historical data service
-	// another data flow: pricing service -> GUI service -> GUI data output
-	pricingService.GetConnector()->Subscribe(); // subscribe from the socket
+	for (auto& thread : threads) {
+		join(thread);
+	}
 
-	// 3.2 orderbook data -> market data service -> algo execution service -> execution service -> historical data service
-	// another data flow: execution service -> trade booking service -> position service -> risk service -> historical data service
-	log(LogLevel::INFO, "Processing market data...");
-	marketDataService.GetConnector()->Subscribe();
-	log(LogLevel::INFO, "Market data processed");
 
-	// 3.3 trade data -> trade booking service -> position service -> risk service -> historical data service
-	log(LogLevel::INFO, "Processing trade data...");
-	tradeBookingService.GetConnector()->Subscribe();
-	log(LogLevel::INFO, "Trade data processed");
-
-	// 3.4 inquiry data -> inquiry service -> historical data service
-	log(LogLevel::INFO, "Processing inquiry data...");
-	inquiryService.GetConnector()->Subscribe();
-	log(LogLevel::INFO, "Inquiry data processed");
 }

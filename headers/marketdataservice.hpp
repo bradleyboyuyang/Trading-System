@@ -410,36 +410,51 @@ template<typename T>
 void MarketDataConnector<T>::handle_read(const boost::system::error_code& ec, std::size_t length, boost::asio::ip::tcp::socket* socket, boost::asio::streambuf* request) {
   if (!ec) {
     std::string data = std::string(boost::asio::buffers_begin(request->data()), boost::asio::buffers_end(request->data()));
-    request->consume(length); // remove the processed data from the buffer
-
-    // parse the line
-    vector<string> lineData;
-    stringstream ss(data); // turn the string into a stream
-    string word;
-    while (getline(ss, word, ','))
-    {
-      lineData.push_back(word);
+    // find the last newline
+    std::size_t last_newline = data.rfind('\n');
+    if (last_newline != std::string::npos) {
+      // consume only up to the last newline
+      request->consume(last_newline + 1);
+      // only process the data up to the last newline
+      data = data.substr(0, last_newline);
+    } else {
+      // if there's no newline, don't process any data
+      data.clear();
     }
-    string timestamp = lineData[0];
-    string productId = lineData[1];
-    OrderBook<T>& orderBook = service->GetData(productId);
 
-    string bidPrice, bidQty, askPrice, askQty;
-    Order bidOrder, askOrder;
-    for (int k = 0; k < service->GetBookDepth(); k++){
-      bidPrice = lineData[4*k+2];
-      bidQty = lineData[4*k+3];
-      askPrice = lineData[4*k+4];
-      askQty = lineData[4*k+5];
-      bidOrder = Order(convertPrice(bidPrice), stol(bidQty), BID);
-      askOrder = Order(convertPrice(askPrice), stol(askQty), OFFER);
-      orderBook.GetBidStack().push_back(bidOrder);
-      orderBook.GetOfferStack().push_back(askOrder);
+    // split the data into lines
+    std::stringstream ss(data);
+    std::string line;
+    while (std::getline(ss, line)) {
+      // parse the line
+      vector<string> lineData;
+      stringstream lineStream(line); // turn the line into a stream
+      string word;
+      while (getline(lineStream, word, ','))
+      {
+        lineData.push_back(word);
+      }
+      string timestamp = lineData[0];
+      string productId = lineData[1];
+      OrderBook<T>& orderBook = service->GetData(productId);
+
+      string bidPrice, bidQty, askPrice, askQty;
+      Order bidOrder, askOrder;
+      for (int k = 0; k < service->GetBookDepth(); k++){
+        bidPrice = lineData[4*k+2];
+        bidQty = lineData[4*k+3];
+        askPrice = lineData[4*k+4];
+        askQty = lineData[4*k+5];
+        bidOrder = Order(convertPrice(bidPrice), stol(bidQty), BID);
+        askOrder = Order(convertPrice(askPrice), stol(askQty), OFFER);
+        orderBook.GetBidStack().push_back(bidOrder);
+        orderBook.GetOfferStack().push_back(askOrder);
+      }
+      // aggregate the order book, get a copy
+      OrderBook<T> aggOrderBook = service->AggregateDepth(productId);
+      // publish the order book to the service
+      service->OnMessage(aggOrderBook);
     }
-    // aggregate the order book, get a copy
-    OrderBook<T> aggOrderBook = service->AggregateDepth(productId);
-    // publish the order book to the service
-    service->OnMessage(aggOrderBook);
 
     boost::asio::async_read_until(*socket, *request, "\n", std::bind(&MarketDataConnector<T>::handle_read, this, std::placeholders::_1, std::placeholders::_2, socket, request));
   } else {

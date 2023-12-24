@@ -2,7 +2,6 @@
 #define FILECONNECTOR_HPP
 
 #include <thread>
-#include <chrono>
 #include <string>
 #include <boost/asio.hpp>
 
@@ -57,12 +56,9 @@ FileConnector<T>::FileConnector(const string& _dataFile, const string& _host, co
 template<typename T>
 void FileConnector<T>::Publish(const string& dataLine)
 {
-  // write the price string to socket
+  // write the data string to socket
+  // asynchronous operation ensures server gets all data
   boost::asio::async_write(socket, boost::asio::buffer(dataLine + "\n"), [](boost::system::error_code /*ec*/, std::size_t /*length*/) {});
-  // sleep to see the server obtains data correctly
-  // optional since asynchronous operation ensures server gets data
-  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
 }
 
 template<typename T>
@@ -77,7 +73,6 @@ void FileConnector<T>::Subscribe()
       return;
     }
     string line;
-    getline(data, line); // skip the first line
     while (getline(data, line))
     {
       // publish data to socket

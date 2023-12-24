@@ -15,13 +15,9 @@ include_directories(${Boost_INCLUDE_DIRS})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 
-# four servers: price, orderbook, trade, and inquiry
+# six servers: input (price, orderbook, trade, inquiry) and output (streaming, execution)
 add_executable(server main.cpp)
 target_link_libraries(server ${Boost_LIBRARIES})
-
-# two servers for publish: stream and execution
-add_executable(stream OutputStreamConnector.cpp)
-add_executable(execution OutputExecutionConnector.cpp)
 
 # four main clients: price, orderbook, trade, and inquiry
 add_executable(price InputPriceConnector.cpp)
