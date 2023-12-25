@@ -377,8 +377,8 @@ private:
 public:
   // ctor
   MarketDataConnector(MarketDataService<T>* _service, const string& _host, const string& _port);
-  // dtor
-  ~MarketDataConnector() = default;
+  // dtor: close the socket
+  ~MarketDataConnector();
 
   // Publish data to the Connector
   void Publish(OrderBook<T>& data) override;
@@ -392,6 +392,12 @@ template<typename T>
 MarketDataConnector<T>::MarketDataConnector(MarketDataService<T>* _service, const string& _host, const string& _port) 
 : service(_service), host(_host), port(_port), socket(io_service)
 {
+}
+
+template<typename T>
+MarketDataConnector<T>::~MarketDataConnector()
+{
+  socket.close();
 }
 
 template<typename T>

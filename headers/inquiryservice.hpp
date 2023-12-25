@@ -343,8 +343,8 @@ private:
 public:
   // ctor
   InquiryDataConnector(InquiryService<T>* _service, const string& _host, const string& _port);
-  // dtor
-  ~InquiryDataConnector()=default;
+  // dtor: close the socket
+  ~InquiryDataConnector();
 
   // Publish data to the Connector
   // If subscribe-only, then this does nothing
@@ -361,6 +361,12 @@ template<typename T>
 InquiryDataConnector<T>::InquiryDataConnector(InquiryService<T>* _service, const string& _host, const string& _port)
 : service(_service), host(_host), port(_port), socket(io_service)
 {
+}
+
+template<typename T>
+InquiryDataConnector<T>::~InquiryDataConnector()
+{
+    socket.close();
 }
 
 template<typename T>

@@ -207,7 +207,7 @@ public:
   // ctor
   PriceDataConnector(PricingService<T>* _service, const string& _host, const string& _port);
   // dtor
-  ~PriceDataConnector()=default;
+  ~PriceDataConnector();
 
   // Publish data to the Connector
   void Publish(Price<T> &data) override;
@@ -221,6 +221,12 @@ template<typename T>
 PriceDataConnector<T>::PriceDataConnector(PricingService<T>* _service, const string& _host, const string& _port)
 : service(_service), host(_host), port(_port), socket(io_service)
 {
+}
+
+template<typename T>
+PriceDataConnector<T>::~PriceDataConnector()
+{
+    socket.close();
 }
 
 template<typename T>
@@ -306,6 +312,7 @@ void PriceDataConnector<T>::Subscribe()
   catch (std::exception& e){
     // throw error log
     log(LogLevel::ERROR, e.what());
+    socket.close();
     return;
   }
 }

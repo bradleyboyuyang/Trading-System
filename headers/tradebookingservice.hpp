@@ -249,8 +249,8 @@ private:
 public:
   // ctor
   TradeDataConnector(TradeBookingService<T>* _service, const string& _host, const string& _port);
-  // dtor
-  ~TradeDataConnector()=default;
+  // dtor: close the socket
+  ~TradeDataConnector();
 
   // Publish data to the Connector
   void Publish(Trade<T> &data) override;
@@ -264,6 +264,12 @@ template<typename T>
 TradeDataConnector<T>::TradeDataConnector(TradeBookingService<T>* _service, const string& _host, const string& _port)
 : service(_service), host(_host), port(_port), socket(io_service)
 {
+}
+
+template<typename T>
+TradeDataConnector<T>::~TradeDataConnector()
+{
+  socket.close();
 }
 
 template<typename T>

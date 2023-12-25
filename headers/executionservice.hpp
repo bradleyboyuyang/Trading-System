@@ -165,8 +165,8 @@ private:
 public:
   // ctor
   ExecutionOutputConnector(ExecutionService<T>* _service, const string& _host, const string& _port);
-  // dtor
-  ~ExecutionOutputConnector()=default;
+  // dtor: close the socket
+  ~ExecutionOutputConnector();
 
   // Publish data to the Connector
   void Publish(const ExecutionOrder<T>& order, Market& market);
@@ -179,6 +179,12 @@ template<typename T>
 ExecutionOutputConnector<T>::ExecutionOutputConnector(ExecutionService<T>* _service, const string& _host, const string& _port)
 : service(_service), host(_host), port(_port), socket(io_service)
 {
+}
+
+template<typename T>
+ExecutionOutputConnector<T>::~ExecutionOutputConnector()
+{
+  socket.close();
 }
 
 template<typename T>

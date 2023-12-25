@@ -159,8 +159,8 @@ private:
 public:
   // ctor
   StreamOutputConnector(StreamingService<T>* _service, const string& _host, const string& _port);
-  // dtor
-  ~StreamOutputConnector()=default;
+  // dtor: close the socket
+  ~StreamOutputConnector();
 
   // Publish data to the socket
   void Publish(const PriceStream<T>& data);
@@ -175,6 +175,12 @@ StreamOutputConnector<T>::StreamOutputConnector(StreamingService<T>* _service, c
 : service(_service), host(_host), port(_port), socket(io_service)
 {
 
+}
+
+template<typename T>
+StreamOutputConnector<T>::~StreamOutputConnector()
+{
+  socket.close();
 }
 
 template<typename T>
