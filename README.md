@@ -5,6 +5,8 @@
 
 We give an example of a trading system for seven US Treasury securities, associated with real-time price and orderbook flows, data streaming, user inquiries, algorithm order execution, risk monitor, logging modules, etc.
 
+### Client-Server Pattern
+The whole system follows a client-server pattern through asynchronous I/O. The program consists of four client programs that subscribes external data and publish to TCP sockets, and a main server program running six servers simultaneously, with four (price, market, trade, inquiry server) listening to TCP sockets from `localhost:3000` to `localhost:3004` and flow data into the system, and two (steaming and execution server) publishing data to TCP sockets `localhost:3004` and `localhost:3005`.
 
 
 ### Connector
@@ -13,68 +15,67 @@ A connector is a component that flows data into trading system from connectivity
 A file connector (also an outbound connector) can both `Subscribe` and `Publish` data. It subscribes data from outside data source and publishes data to a socket with specified host and port. An inbound connector can then subscribes data from the socket and flows data into the trading system through calling `Service.OnMessage()`. It can also publish data to outside source using `Service.Publish()`.
 
 
-### Data Flow
-
-External data flows into the trading system through connectors and service listeners:
-
-1. price data -> pricing service -> algo streaming service -> streaming service -> historical data service
-
-2. price data -> pricing service -> GUI service -> GUI output
-
-3. orderbook data -> market data service -> algo execution service -> execution service -> historical data service
-
-4. execution service -> trade booking service -> position service -> risk service -> historical data service
-
-5. trade data -> trade booking service -> position service -> risk service -> historical data service
-
-6. inquiry data -> inquiry service -> historical data service
-
-
-
 ## Deployment
-
+The instruction to run the system on a Linux machine is as follows (tested on Ubuntu 22.04). Before running the system, make sure you have installed `boost` and `cmake` tools, and check firewall settings to open local ports `3000-3005` for TCP sockets (important!)
 ```bash
 # install boost and cmake tools
 sudo apt-get update
 sudo apt-get install libboost-all-dev
 sudo apt install cmake
+```
 
-# compile and run executables
+The direct way is simply run the bash script `run.sh` in the root directory. It builds the system and starts the server in the foreground, then start the four client programs in the background.
+```bash
+chmod +x run.sh
+./run.sh
+```
+
+Or you can manually build and run the system.
+```bash
+# compile and start servers
 mkdir build
 cd build
 cmake ..
 make
-./tradingsystem
+./server
+
+# start clients in separate terminals
+./price
+./market
+./trade
+./inquiry
 ```
 
 
-
 ## Scripts
-- Core components
-  - `main`: main file that prepares trading system, set up interactions among services, and **start different service components simultaneously using multi-threading**
-  - `products`: define the class for the trading products, can be treasury bonds, interest rate swaps, future, commodity, or any user-defined product object
-  - `historicaldataservice`: a last-step service that listens to position service, risk service, execution service, streaming service, and inquiry service; persist objects it receives and saves the data into database (usually data centers, KDB database, etc)
-  - `utils`: time displayer, data generator, and risk calculator
+- Main program
+  - `InputPriceConnector`: an input connector that subscribes external price data and publishes to TCP socket `localhost:3000`
+  - `InputMarketDataConnector`: an input connector that subscribes external orderbook data and publishes to TCP socket `localhost:3001`
+  - `InputTradeConnector`: an input connector that subscribes external trade data and publishes to TCP socket `localhost:3002`
+  - `InputInquiryConnector`: an input connector that subscribes external user inquiry data and publishes to TCP socket `localhost:3003`
+  - `StreamOutputConnector`: an outbound connector that subscribes streaming flow data from TCP socket `localhost:3000` and publishes to `localhost:3004`
+  - `ExecutionOutputConnector`: an outbound connector that subscribes execution data from TCP socket `localhost:3001` and publishes to `localhost:3005`
+  - `main`: connect different services, attach six threads to six servers, and start listening to TCP sockets `localhost:3000-3005`
 
-- Price data components
+
+- Service components
 
   - `pricingservice`: read in price data from the socket to the system through an inbound connector
-
   - `algostreamingservice`: listen to pricing service, flow in data of `Price<T>` and generate data of `AlgoStream<T>`  
-
   - `streamingservice`: listen to algo streaming service, flow in data of `AlgoStream<T>` and record bid/ask prices into `priceStream<T>`, publish streams via socket in a separate process
   - `guiservice`: a GUI component that listens to streaming prices that should be throttled with a 300 millisecond throttle., register a service listener on the pricing service and output the updates with a timestamp with millisecond precision to a file `gui.txt`.
-
-- Orderbook data components
   - `marketdataservice`: read in orderbook data from the socket to the system through an inbound connector
   - `algoexecutionservice`: listen to market data service, flow in data of `Orderbook<T>` and turn into execution data `AlgoExecution<T>`
   - `executionservice`: listen to algo execution service, flow in data of `AlgoExecution<T>` and record order information into `ExecutionOrder<T>`, publish order executions via socket in a separate process
-- Trade data components
   - `tradebookingservice`: read in trade data, listen to execution service at the same time, flow in `ExecutionOrder<T>` and turn in trade data of type `Trade<T>`
   - `positionservice`: listen to trade booking service, flow in `Trade<T>` data and turn into `Position<T>`
   - `riskservice`: listen to position service, flow in `Position<T>` data and calculate corresponding position risks, such as `PV01<T>`. 
-- Inquiry data components
   - `inquiryservice`: read in user inquiry data, interact with connectors and deal with inquiries
+
+- Other components
+  - `products`: define the class for the trading products, can be treasury bonds, interest rate swaps, future, commodity, or any user-defined product object
+  - `historicaldataservice`: a last-step service that listens to position service, risk service, execution service, streaming service, and inquiry service; persist objects it receives and saves the data into database (usually data centers, KDB database, etc)
+  - `utils`: time displayer, data generator, and risk calculator
 
 - Data and results
 
