@@ -6,19 +6,20 @@ The project gives an example of a trading system for seven US Treasury securitie
 ## Service Architecture
 
 <img src="./imgs/serviceflow.png" width="750">
-Data flow into the trading system through `Subscribe()` that calls `OnMessage()`, transmit among different service components through `ProcessAdd()`, and flow out of the system through `Publish()`.
+
+Data flow into the trading system through `Subscribe()` that calls `OnMessage()`, transmits among different service components through `ProcessAdd()`, and flows out of the system through `Publish()`.
 
 ### Connector
 
-Connectors can be subscribe-only or publish-only, or both. A input file connector can both `Subscribe` data from outside data source and `Publish` data to a socket with specified host and port. An inbound connector can then subscribe data from the socket and flow data into the trading system through calling `Service.OnMessage()`, or publish data to outside source using `Service.Publish()`.
+Connectors can be subscribe-only or publish-only, or both. An input file connector can both `Subscribe` data from outside data sources and `Publish` data to a socket with a specified host and port. An inbound connector can then subscribe data from the socket and flow data into the trading system by calling `Service.OnMessage()`, or publish data to outside source using `Service.Publish()`.
 
 ## Client-Server Pattern
 
 <img src="./imgs/clientserver.png" width="700">
-The whole system follows a client-server pattern through asynchronous I/O. The program consists of four client programs that subscribes external data and publish to TCP sockets, and a main server program running six servers simultaneously using multi-threading. Data flows into the trading system through connectors from connectivity source (e.g. a socket, database, etc).
+The whole system follows a client-server pattern through asynchronous I/O. The program consists of four client programs that subscribe to external data and publish to TCP sockets, and a main server program running six servers simultaneously using multi-threading. Data flows into the trading system through connectors from connectivity source (e.g. a socket, database, etc).
 
 ### Socket-based Communication
-Communication between different components is based on socket to ensure real-time, low-latency and high-throughput. Six servers are running simultaneously, with four (price, market, trade, inquiry server) listening to TCP sockets from `localhost:3000` to `localhost:3004` and flow data into the system, and two (steaming and execution server) publishing data to TCP sockets `localhost:3004` and `localhost:3005`.
+Communication between different components is based on sockets to ensure real-time, low-latency and high throughput. Six servers are running simultaneously, with four (price, market, trade, inquiry server) listening to TCP sockets from `localhost:3000` to `localhost:3004` and flow data into the system, and two (steaming and execution server) publishing data to TCP sockets `localhost:3004` and `localhost:3005`.
 
 
 
@@ -80,15 +81,15 @@ make
   - `inquiryservice`: read in user inquiry data, interact with connectors and deal with inquiries
 
 - Other components
-  - `products`: define the class for the trading products, can be treasury bonds, interest rate swaps, future, commodity, or any user-defined product object
-  - `historicaldataservice`: a last-step service that listens to position service, risk service, execution service, streaming service, and inquiry service; persist objects it receives and saves the data into database (usually data centers, KDB database, etc)
+  - `products`: define the class for the trading products, which can be treasury bonds, interest rate swaps, future, commodity, or any user-defined product object
+  - `historicaldataservice`: a last-step service that listens to position service, risk service, execution service, streaming service, and inquiry service; persist objects it receives and saves the data into a database (usually data centers, KDB database, etc)
   - `utils`: time displayer, data generator, and risk calculator
 
 - Data and results
 
-  - `data`: data source for price data, orderbook updates, user inquiries, and trade data, can be replaced by other connectivity source (a database, socket, etc)
+  - `data`: data source for price data, orderbook updates, user inquiries, and trade data, can be replaced by other connectivity sources (a database, socket, etc)
 
   - `res`: results published by the system, including processed queries, executed orders, positions, risk monitor, data streaming, and GUI output.
 
 ## Note
-The trading system is designed to be scalable, extensible, and maintainable. Multi-threading and asynchronous programming ensures low-latency, high-throughput, and high-performance. The system is also designed to be modularized, with each service component being independent and loosely coupled with others. New trading products can be added into `products.hpp`, new services, listeners, connectors can all be easily added and integrated into the whole system.
+The trading system is designed to be scalable, extensible, and maintainable. Multi-threading and asynchronous programming ensure low-latency, high throughput, and high-performance. The system is also designed to be modularized, with each service component being independent and loosely coupled with others. New trading products can be added into `products.hpp`, new services, listeners, and connectors can all be easily added and integrated into the whole system.
