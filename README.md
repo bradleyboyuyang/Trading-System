@@ -1,10 +1,12 @@
 # Trading-System
  An asynchronous and low-latency trading system designed under service-oriented architecture (SOA). 
 
+The project gives an example of a trading system for seven US Treasury securities, with real-time price and orderbook flows, data streaming, user inquiries, algorithm order execution, risk monitor, logging modules, etc.
+
 ## Service Architecture
 
-We show an example of a trading system for seven US Treasury securities, equipped with real-time price and orderbook flows, data streaming, user inquiries, algorithm order execution, risk monitor, logging modules, etc.
-<img src="./imgs/serviceflow.png" width="600">
+<img src="./imgs/serviceflow.png" width="750">
+
 Data flow into the trading system through `Subscribe()` that calls `OnMessage()`, transmit among different service components through `ProcessAdd()`, and flow out of the system through `Publish()`.
 
 
@@ -13,8 +15,9 @@ Communication between different components is based on socket to ensure real-tim
 
 
 ### Client-Server Pattern
-<img src="./imgs/clientserver.png" width="600">
 The whole system follows a client-server pattern through asynchronous I/O. The program consists of four client programs that subscribes external data and publish to TCP sockets, and a main server program running six servers simultaneously using multi-threading. Data flows into the trading system through connectors from connectivity source (e.g. a socket, database, etc).
+
+<img src="./imgs/clientserver.png" width="600">
 
 
 ### Connector
