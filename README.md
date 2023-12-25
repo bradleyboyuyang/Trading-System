@@ -1,18 +1,21 @@
 # Trading-System
- A scalable, extensible, and maintainable low-latency trading system framework designed under service-oriented architecture (SOA). 
+ An asynchronous and low-latency trading system designed under service-oriented architecture (SOA). 
 
 ## Service Architecture
 
-We give an example of a trading system for seven US Treasury securities, associated with real-time price and orderbook flows, data streaming, user inquiries, algorithm order execution, risk monitor, logging modules, etc.
+We show an example of a trading system for seven US Treasury securities, equipped with real-time price and orderbook flows, data streaming, user inquiries, algorithm order execution, risk monitor, logging modules, etc.
+
+### Socket-based Communication
+Communication between different components is based on socket to ensure real-time, low-latency and high-throughput. Six servers are running simultaneously, with four (price, market, trade, inquiry server) listening to TCP sockets from `localhost:3000` to `localhost:3004` and flow data into the system, and two (steaming and execution server) publishing data to TCP sockets `localhost:3004` and `localhost:3005`.
+
 
 ### Client-Server Pattern
-The whole system follows a client-server pattern through asynchronous I/O. The program consists of four client programs that subscribes external data and publish to TCP sockets, and a main server program running six servers simultaneously, with four (price, market, trade, inquiry server) listening to TCP sockets from `localhost:3000` to `localhost:3004` and flow data into the system, and two (steaming and execution server) publishing data to TCP sockets `localhost:3004` and `localhost:3005`.
+The whole system follows a client-server pattern through asynchronous I/O. The program consists of four client programs that subscribes external data and publish to TCP sockets, and a main server program running six servers simultaneously using multi-threading. Data flows into the trading system through connectors from connectivity source (e.g. a socket, database, etc).
 
 
 ### Connector
 
-A connector is a component that flows data into trading system from connectivity source (e.g. a socket, database, etc). Connectors can be subscribe-only or publish-only, or both.
-A file connector (also an outbound connector) can both `Subscribe` and `Publish` data. It subscribes data from outside data source and publishes data to a socket with specified host and port. An inbound connector can then subscribes data from the socket and flows data into the trading system through calling `Service.OnMessage()`. It can also publish data to outside source using `Service.Publish()`.
+Connectors can be subscribe-only or publish-only, or both. A input file connector can both `Subscribe` data from outside data source and `Publish` data to a socket with specified host and port. An inbound connector can then subscribe data from the socket and flow data into the trading system through calling `Service.OnMessage()`, or publish data to outside source using `Service.Publish()`.
 
 
 ## Deployment
@@ -24,13 +27,13 @@ sudo apt-get install libboost-all-dev
 sudo apt install cmake
 ```
 
-The direct way is simply run the bash script `run.sh` in the root directory. It builds the system and starts the server in the foreground, then start the four client programs in the background.
+The direct way is simply run the bash script `run.sh` in the root directory. It starts the system and the servers in the foreground, then start the four client programs in the background.
 ```bash
 chmod +x run.sh
 ./run.sh
 ```
 
-Or you can manually build and run the system.
+Or one can manually build and run the system.
 ```bash
 # compile and start servers
 mkdir build
