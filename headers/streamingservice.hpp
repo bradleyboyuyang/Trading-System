@@ -11,17 +11,15 @@
 #include "algostreamingservice.hpp"
 
 /**
- * Forward declaration of StreamingServiceConnector and StreamingServiceListener.
+ * Forward declaration of StreamOutputConnector and StreamingServiceListener.
  * As described, streaming service needs a publish-only connector to publish streams (which notify the listener and print the execution data)
  * into a separate process which listens to the streams on the socket via its own Connector.
  * Type T is the product type.
  */
 template<typename T>
-class StreamingServiceConnector;
+class StreamOutputConnector;
 template<typename T>
 class StreamingServiceListener;
-
-
 
 /**
  * Streaming service to publish two-way prices.
@@ -34,12 +32,14 @@ class StreamingService : public Service<string,PriceStream <T> >
 private:
   map<string, PriceStream<T>> priceStreamMap; // store price stream data keyed by product identifier
   vector<ServiceListener<PriceStream<T>>*> listeners; // list of listeners to this service
-  StreamingServiceConnector<T>* connector; // connector related to this server
+  string host; // host name for inbound connector
+  string port; // port number for inbound connector
+  StreamOutputConnector<T>* connector; // connector related to this server
   StreamingServiceListener<T>* streamingservicelistener; // listener related to this server
 
 public:
   // ctor and dtor
-  StreamingService();
+  StreamingService(const string& _host, const string& _port);
   ~StreamingService()=default;
 
   // Get data on our service given a key
@@ -58,7 +58,7 @@ public:
   StreamingServiceListener<T>* GetStreamingServiceListener();
 
   // Get the connector
-  StreamingServiceConnector<T>* GetConnector();
+  StreamOutputConnector<T>* GetConnector();
 
   // Publish two-way prices (called by the publish-only connector to publish streams)
   void PublishPrice(const PriceStream<T>& priceStream);
@@ -69,8 +69,11 @@ public:
 };
 
 template<typename T>
-StreamingService<T>::StreamingService()
+StreamingService<T>::StreamingService(const string& _host, const string& _port)
 {
+  host = _host;
+  port = _port;
+  connector = new StreamOutputConnector<T>(this, host, port); // connector related to this server
   streamingservicelistener = new StreamingServiceListener<T>(this); // listener related to this server
 }
 
@@ -108,7 +111,7 @@ StreamingServiceListener<T>* StreamingService<T>::GetStreamingServiceListener()
 }
 
 template<typename T>
-StreamingServiceConnector<T>* StreamingService<T>::GetConnector()
+StreamOutputConnector<T>* StreamingService<T>::GetConnector()
 {
   return connector;
 }
@@ -137,49 +140,128 @@ void StreamingService<T>::AddPriceStream(const AlgoStream<T>& algoStream)
 }
 
 /**
- * StreamingServiceConnector: publish data to streaming service.
+ * StreamOutputConnector: publish data to socket.
  * Type T is the product type.
  */
 template<typename T>
-class StreamingServiceConnector : public Connector<PriceStream<T>>
+class StreamOutputConnector
 {
 private:
   StreamingService<T>* service;
+  string host; // host name
+  string port; // port number
+  boost::asio::io_service io_service; // io service
+  boost::asio::ip::tcp::socket socket; // socket
+
+  void handle_read(const boost::system::error_code& ec, std::size_t length, boost::asio::ip::tcp::socket* socket, boost::asio::streambuf* request);
+  void start_accept(boost::asio::ip::tcp::acceptor* acceptor, boost::asio::io_service* io_service);
 
 public:
   // ctor
-  StreamingServiceConnector(StreamingService<T>* _service);
+  StreamOutputConnector(StreamingService<T>* _service, const string& _host, const string& _port);
   // dtor
-  ~StreamingServiceConnector()=default;
+  ~StreamOutputConnector()=default;
 
-  // Publish data to the Connector
+  // Publish data to the socket
   void Publish(const PriceStream<T>& data);
+
+  // Here the subscribe is used to open a process and listen to the socket
+  void Subscribe();
 
 };
 
 template<typename T>
-StreamingServiceConnector<T>::StreamingServiceConnector(StreamingService<T>* _service)
+StreamOutputConnector<T>::StreamOutputConnector(StreamingService<T>* _service, const string& _host, const string& _port)
+: service(_service), host(_host), port(_port), socket(io_service)
 {
-  service = _service;
+
+}
+
+template<typename T>
+void StreamOutputConnector<T>::start_accept(boost::asio::ip::tcp::acceptor* acceptor, boost::asio::io_service* io_service) {
+  boost::asio::ip::tcp::socket* socket = new boost::asio::ip::tcp::socket(*io_service);
+  acceptor->async_accept(*socket, [this, socket, acceptor, io_service](const boost::system::error_code& ec) {
+    if (!ec) {
+      boost::asio::streambuf* request = new boost::asio::streambuf;
+      boost::asio::async_read_until(*socket, *request, "\r", std::bind(&StreamOutputConnector<T>::handle_read, this, std::placeholders::_1, std::placeholders::_2, socket, request));
+    }
+    start_accept(acceptor, io_service); // accept the next connection
+  });
+}
+
+template<typename T>
+void StreamOutputConnector<T>::handle_read(const boost::system::error_code& ec, std::size_t length, boost::asio::ip::tcp::socket* socket, boost::asio::streambuf* request) {
+  if (!ec) {
+    // get the entire data
+    std::string data = std::string(boost::asio::buffers_begin(request->data()), boost::asio::buffers_end(request->data()));
+    // find the last newline
+    std::size_t last_newline = data.rfind('\r');
+    if (last_newline != std::string::npos) {
+      // consume only up to the last newline
+      request->consume(last_newline + 1);
+      // only process the data up to the last newline
+      data = data.substr(0, last_newline);
+    } else {
+      // if there's no newline, don't process any data
+      data.clear();
+    }
+    // server receives and prints data
+    cout << data << endl;
+
+    boost::asio::async_read_until(*socket, *request, "\n", std::bind(&StreamOutputConnector<T>::handle_read, this, std::placeholders::_1, std::placeholders::_2, socket, request));
+  } else {
+    delete request; // delete the streambuf when we're done with it
+    delete socket; // delete the socket when we're done with it
+  }
 }
 
 /**
  * Publish() method is used by the publish-only connector to publish streams.
  */
 template<typename T>
-void StreamingServiceConnector<T>::Publish(const PriceStream<T>& data)
+void StreamOutputConnector<T>::Publish(const PriceStream<T>& data)
 {
+  // connect to the socket
+  boost::asio::ip::tcp::resolver resolver(io_service);
+  boost::asio::ip::tcp::resolver::query query(host, port);
+  boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+  boost::asio::connect(socket, endpoint_iterator);
+
   // print the price stream data
   T product = data.GetProduct();
   string productId = product.GetProductId();
   PriceStreamOrder bid = data.GetBidOrder();
   PriceStreamOrder offer = data.GetOfferOrder();
 
-  cout << "Price Stream " << "(Product " << productId << "): \n"
-      <<"\tBid\t"<<"Price: "<<bid.GetPrice()<<"\tVisibleQuantity: "<<bid.GetVisibleQuantity()
-      <<"\tHiddenQuantity: "<<bid.GetHiddenQuantity()<<"\n"
-      <<"\tAsk\t"<<"Price: "<<offer.GetPrice()<<"\tVisibleQuantity: "<<offer.GetVisibleQuantity()
-      <<"\tHiddenQuantity: "<<offer.GetHiddenQuantity()<<"\n";
+  string dataLine = string("Price Stream ") + "(Product " + productId + "): \n"
+    + "\tBid\t" + "Price: " + std::to_string(bid.GetPrice()) + "\tVisibleQuantity: " + std::to_string(bid.GetVisibleQuantity())
+    + "\tHiddenQuantity: " + std::to_string(bid.GetHiddenQuantity()) + "\n"
+    + "\tAsk\t" + "Price: " + std::to_string(offer.GetPrice()) + "\tVisibleQuantity: " + std::to_string(offer.GetVisibleQuantity())
+    + "\tHiddenQuantity: " + std::to_string(offer.GetHiddenQuantity()) + "\n";
+
+  // publish the data string to socket
+  // asynchronous operation ensures server gets all data
+  boost::asio::async_write(socket, boost::asio::buffer(dataLine + "\r"), [](boost::system::error_code /*ec*/, std::size_t /*length*/) {});
+}
+
+template<typename T>
+void StreamOutputConnector<T>::Subscribe()
+{
+  log(LogLevel::NOTE, "Streaming output server listening on " + host + ":" + port);
+  try {
+  // connect to the socket
+  boost::asio::ip::tcp::resolver resolver(io_service);
+  boost::asio::ip::tcp::resolver::query query(host, port);
+  boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
+  boost::asio::ip::tcp::acceptor acceptor(io_service, endpoint);
+  start_accept(&acceptor, &io_service);
+  io_service.run();
+  }
+  catch (std::exception& e){
+    // throw error log
+    log(LogLevel::ERROR, e.what());
+    return;
+  }
 }
 
 /**

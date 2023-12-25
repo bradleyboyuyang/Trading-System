@@ -15,7 +15,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 
-# six servers: input (price, orderbook, trade, inquiry) and output (streaming, execution)
+# six servers/processes: input (price, orderbook, trade, inquiry) and output (streaming, execution)
 add_executable(server main.cpp)
 target_link_libraries(server ${Boost_LIBRARIES})
 

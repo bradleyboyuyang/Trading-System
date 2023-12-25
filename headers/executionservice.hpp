@@ -13,12 +13,12 @@
 #include "algoexecutionservice.hpp"
 
 /**
- * Forward declaration of ExecutionServiceConnector and ExecutionServiceListener.
+ * Forward declaration of ExecutionOutputConnector and ExecutionServiceListener.
  * As described, execution service needs a publish-only connector to publish executions 
  * Type T is the product type.
  */
 template<typename T>
-class ExecutionServiceConnector;
+class ExecutionOutputConnector;
 template<typename T>
 class ExecutionServiceListener;
 
@@ -34,12 +34,14 @@ class ExecutionService : public Service<string,ExecutionOrder <T> >
 private:
   map<string, ExecutionOrder<T>> executionOrderMap; // store execution order data keyed by product identifier
   vector<ServiceListener<ExecutionOrder<T>>*> listeners; // list of listeners to this service
-  ExecutionServiceConnector<T>* connector; // connector related to this server
+  string host; // host name for inbound connector
+  string port; // port number for inbound connector
+  ExecutionOutputConnector<T>* connector; // connector related to this server
   ExecutionServiceListener<T>* executionservicelistener; // listener related to this server
 
 public:
   // ctor and dtor
-  ExecutionService();
+  ExecutionService(const string& _host, const string& _port);
   ~ExecutionService()=default;
 
   // Get data on our service given a key
@@ -58,7 +60,7 @@ public:
   ExecutionServiceListener<T>* GetExecutionServiceListener();
 
   // Get the connector
-  ExecutionServiceConnector<T>* GetConnector();
+  ExecutionOutputConnector<T>* GetConnector();
 
   // Execute an order on a market, call the publish-only connector to publish executions
   void ExecuteOrder(const ExecutionOrder<T>& order, Market market);
@@ -69,9 +71,11 @@ public:
 };
 
 template<typename T>
-ExecutionService<T>::ExecutionService()
+ExecutionService<T>::ExecutionService(const string& _host, const string& _port)
+: host(_host), port(_port)
 {
-  executionservicelistener = new ExecutionServiceListener<T>(this);
+  connector = new ExecutionOutputConnector<T>(this, host, port); // connector related to this server
+  executionservicelistener = new ExecutionServiceListener<T>(this); // listener related to this server
 }
 
 template<typename T>
@@ -108,7 +112,7 @@ ExecutionServiceListener<T>* ExecutionService<T>::GetExecutionServiceListener()
 }
 
 template<typename T>
-ExecutionServiceConnector<T>* ExecutionService<T>::GetConnector()
+ExecutionOutputConnector<T>* ExecutionService<T>::GetConnector()
 {
   return connector;
 }
@@ -142,40 +146,92 @@ void ExecutionService<T>::AddExecutionOrder(const AlgoExecution<T>& algoExecutio
 }
 
 /**
- * ExecutionServiceConnector: publish data to execution service.
+ * ExecutionOutputConnector: publish data to execution service.
  * Type T is the product type.
  */
 template<typename T>
-class ExecutionServiceConnector : public Connector<ExecutionOrder<T>>
+class ExecutionOutputConnector
 {
 private:
   ExecutionService<T>* service; // execution service related to this connector
+  string host; // host name
+  string port; // port number
+  boost::asio::io_service io_service; // io service
+  boost::asio::ip::tcp::socket socket; // socket
+
+  void handle_read(const boost::system::error_code& ec, std::size_t length, boost::asio::ip::tcp::socket* socket, boost::asio::streambuf* request);
+  void start_accept(boost::asio::ip::tcp::acceptor* acceptor, boost::asio::io_service* io_service);
 
 public:
   // ctor
-  ExecutionServiceConnector(ExecutionService<T>* _service);
+  ExecutionOutputConnector(ExecutionService<T>* _service, const string& _host, const string& _port);
   // dtor
-  ~ExecutionServiceConnector()=default;
+  ~ExecutionOutputConnector()=default;
 
   // Publish data to the Connector
   void Publish(const ExecutionOrder<T>& order, Market& market);
 
-  // No Subscribe() method for publish-only connector
+  // Here the subscribe is used to open a process and listen to the socket
+  void Subscribe();
 };
 
 template<typename T>
-ExecutionServiceConnector<T>::ExecutionServiceConnector(ExecutionService<T>* _service)
-: service(_service)
+ExecutionOutputConnector<T>::ExecutionOutputConnector(ExecutionService<T>* _service, const string& _host, const string& _port)
+: service(_service), host(_host), port(_port), socket(io_service)
 {
+}
+
+template<typename T>
+void ExecutionOutputConnector<T>::start_accept(boost::asio::ip::tcp::acceptor* acceptor, boost::asio::io_service* io_service) {
+  boost::asio::ip::tcp::socket* socket = new boost::asio::ip::tcp::socket(*io_service);
+  acceptor->async_accept(*socket, [this, socket, acceptor, io_service](const boost::system::error_code& ec) {
+    if (!ec) {
+      boost::asio::streambuf* request = new boost::asio::streambuf;
+      boost::asio::async_read_until(*socket, *request, "\r", std::bind(&ExecutionOutputConnector<T>::handle_read, this, std::placeholders::_1, std::placeholders::_2, socket, request));
+    }
+    start_accept(acceptor, io_service); // accept the next connection
+  });
+}
+
+template<typename T>
+void ExecutionOutputConnector<T>::handle_read(const boost::system::error_code& ec, std::size_t length, boost::asio::ip::tcp::socket* socket, boost::asio::streambuf* request) {
+  if (!ec) {
+    // get the entire data
+    std::string data = std::string(boost::asio::buffers_begin(request->data()), boost::asio::buffers_end(request->data()));
+    // find the last newline
+    std::size_t last_newline = data.rfind('\r');
+    if (last_newline != std::string::npos) {
+      // consume only up to the last newline
+      request->consume(last_newline + 1);
+      // only process the data up to the last newline
+      data = data.substr(0, last_newline);
+    } else {
+      // if there's no newline, don't process any data
+      data.clear();
+    }
+    // server receives and prints data
+    cout << data << endl;
+
+    boost::asio::async_read_until(*socket, *request, "\n", std::bind(&ExecutionOutputConnector<T>::handle_read, this, std::placeholders::_1, std::placeholders::_2, socket, request));
+  } else {
+    delete request; // delete the streambuf when we're done with it
+    delete socket; // delete the socket when we're done with it
+  }
 }
 
 /**
  * Publish() method is used by publish-only connector to publish executions.
  */
 template<typename T>
-void ExecutionServiceConnector<T>::Publish(const ExecutionOrder<T>& order, Market& market)
+void ExecutionOutputConnector<T>::Publish(const ExecutionOrder<T>& order, Market& market)
 {
-  // print the execution order data
+  // connect to the socket
+  boost::asio::ip::tcp::resolver resolver(io_service);
+  boost::asio::ip::tcp::resolver::query query(host, port);
+  boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+  boost::asio::connect(socket, endpoint_iterator);
+
+  // publish the execution order data to socket
   auto product = order.GetProduct();
   string order_type;
   switch(order.GetOrderType()) {
@@ -191,12 +247,36 @@ void ExecutionServiceConnector<T>::Publish(const ExecutionOrder<T>& order, Marke
       case ESPEED: tradeMarket = "ESPEED"; break;
       case CME: tradeMarket = "CME"; break;
   }
-  cout << "ExecutionOrder: \n"
-      <<"\tProduct: " << product.GetProductId() <<"\tOrderId: "<<order.GetOrderId()<< "\tTrade Market: " << tradeMarket << "\n"
-      <<"\tPricingSide: "<<(order.GetSide()==BID? "Bid":"Offer")
-      <<"\tOrderType: "<<order_type<<"\t\tIsChildOrder: "<<(order.IsChildOrder()?"True":"False") <<"\n"
-      <<"\tPrice: "<<order.GetPrice()<<"\tVisibleQuantity: "<<order.GetVisibleQuantity()
-      <<"\tHiddenQuantity: "<<order.GetHiddenQuantity()<<endl<<endl;
+  std::string dataLine = string("ExecutionOrder: \n")
+    + "\tProduct: " + product.GetProductId() + "\tOrderId: " + order.GetOrderId() + "\tTrade Market: " + tradeMarket + "\n"
+    + "\tPricingSide: " + (order.GetSide()==BID? "Bid":"Offer")
+    + "\tOrderType: " + order_type + "\t\tIsChildOrder: " + (order.IsChildOrder()?"True":"False") + "\n"
+    + "\tPrice: " + std::to_string(order.GetPrice()) + "\tVisibleQuantity: " + std::to_string(order.GetVisibleQuantity())
+    + "\tHiddenQuantity: " + std::to_string(order.GetHiddenQuantity()) + "\n";
+
+  // publish the data string to socket
+  // asynchronous operation ensures server gets all data
+  boost::asio::async_write(socket, boost::asio::buffer(dataLine + "\r"), [](boost::system::error_code /*ec*/, std::size_t /*length*/) {});
+}
+
+template<typename T>
+void ExecutionOutputConnector<T>::Subscribe()
+{
+  log(LogLevel::NOTE, "Streaming output server listening on " + host + ":" + port);
+  try {
+  // connect to the socket
+  boost::asio::ip::tcp::resolver resolver(io_service);
+  boost::asio::ip::tcp::resolver::query query(host, port);
+  boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
+  boost::asio::ip::tcp::acceptor acceptor(io_service, endpoint);
+  start_accept(&acceptor, &io_service);
+  io_service.run();
+  }
+  catch (std::exception& e){
+    // throw error log
+    log(LogLevel::ERROR, e.what());
+    return;
+  }
 }
 
 /**
@@ -259,8 +339,5 @@ template<typename T>
 void ExecutionServiceListener<T>::ProcessUpdate(AlgoExecution<T> &data)
 {
 }
-
-
-
 
 #endif

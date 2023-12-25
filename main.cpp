@@ -37,7 +37,11 @@
 
 using namespace std;
 
-// server thread function
+/**
+ * server thread function
+ * The whole system is designed so that subscribe() method
+ * opens a separate process and listens to the data on the socket
+ */
 template<typename T>
 void Server(T& service)
 {
@@ -85,11 +89,11 @@ int main(int, char**){
 	MarketDataService<Bond> marketDataService("localhost", "3001");
 	TradeBookingService<Bond> tradeBookingService("localhost", "3002");
 	InquiryService<Bond> inquiryService("localhost", "3003");
+	StreamingService<Bond> streamingService("localhost", "3004");
+	ExecutionService<Bond> executionService("localhost", "3005");
 
 	AlgoStreamingService<Bond> algoStreamingService;
-	StreamingService<Bond> streamingService;
 	AlgoExecutionService<Bond> algoExecutionService;
-	ExecutionService<Bond> executionService;
 	PositionService<Bond> positionService;
 	RiskService<Bond> riskService;
 	GUIService<Bond> guiService;
@@ -119,16 +123,19 @@ int main(int, char**){
 	inquiryService.AddListener(historicalInquiryService.GetHistoricalDataServiceListener());
 	log(LogLevel::INFO, "Service listeners linked.");
 
-	// 3. start six system servers in different threads: 
-	// input (price, orderbook, trade, inquiry) and output (streaming, execution)
+	// 3. start six system servers in different threads
 	cout << fixed << setprecision(6);
 	vector<thread> threads;
-	threads.push_back(thread(Server<PricingService<Bond>>, ref(pricingService))); // input price server
-	threads.push_back(thread(Server<MarketDataService<Bond>>, ref(marketDataService))); // input orderbook server
-	threads.push_back(thread(Server<TradeBookingService<Bond>>, ref(tradeBookingService))); // input trade server
-	threads.push_back(thread(Server<InquiryService<Bond>>, ref(inquiryService))); // input inquiry server
-	// threads.push_back(thread(Server<StreamingService<Bond>>, ref(streamingService))); // output streaming server
-	// threads.push_back(thread(Server<ExecutionService<Bond>>, ref(executionService))); // output execution server
+
+	// four input servers: pricing, market data, trade booking, inquiry
+	threads.push_back(thread(Server<PricingService<Bond>>, ref(pricingService))); 
+	threads.push_back(thread(Server<MarketDataService<Bond>>, ref(marketDataService))); 
+	threads.push_back(thread(Server<TradeBookingService<Bond>>, ref(tradeBookingService))); 
+	threads.push_back(thread(Server<InquiryService<Bond>>, ref(inquiryService))); 
+
+	// two output servers: streaming, execution
+	threads.push_back(thread(Server<StreamingService<Bond>>, ref(streamingService)));
+	threads.push_back(thread(Server<ExecutionService<Bond>>, ref(executionService))); 
 
 	for (auto& thread : threads) {
 		join(thread);

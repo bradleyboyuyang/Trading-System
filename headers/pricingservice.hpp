@@ -235,54 +235,6 @@ void PriceDataConnector<T>::start_accept(boost::asio::ip::tcp::acceptor* accepto
   });
 }
 
-// template<typename T>
-// void PriceDataConnector<T>::handle_read(const boost::system::error_code& ec, std::size_t length, boost::asio::ip::tcp::socket* socket, boost::asio::streambuf* request) {
-//   if (!ec) {
-//     // get the entire data
-//     std::string data = std::string(boost::asio::buffers_begin(request->data()), boost::asio::buffers_end(request->data()));
-//     // find the last newline
-//     std::size_t last_newline = data.rfind('\n');
-//     if (last_newline != std::string::npos) {
-//       // consume only up to the last newline
-//       request->consume(last_newline + 1);
-//       // only process the data up to the last newline
-//       data = data.substr(0, last_newline);
-//     } else {
-//       // if there's no newline, don't process any data
-//       data.clear();
-//     }
-//   cout << data << endl;
-//   cout << "================================" << endl;
-//   // sleep for 1 second
-//   std::this_thread::sleep_for(std::chrono::seconds(1));
-//     // process the data
-//     vector<string> lineData;
-//     stringstream ss(data); // turn the string into a stream
-//     string word;
-//     while (getline(ss, word, ','))  
-//     {
-//       lineData.push_back(word);
-//     }
-//     string timestamp = lineData[0];
-//     string productId = lineData[1];
-//     double bid = convertPrice(lineData[2]);
-//     double ask = convertPrice(lineData[3]);
-//     double spread = stod(lineData[4]);
-//     double mid = (bid + ask) / 2.0;
-//     // create product object based on product id
-//     T product = getProductObject<T>(productId);
-//     // create price object based on product, mid price and bid/offer spread
-//     Price<T> price(product, mid, spread);
-//     // publish data to service
-//     service->OnMessage(price);
-
-//     boost::asio::async_read_until(*socket, *request, "\n", std::bind(&PriceDataConnector<T>::handle_read, this, std::placeholders::_1, std::placeholders::_2, socket, request));
-//   } else {
-//     delete request; // delete the streambuf when we're done with it
-//     delete socket; // delete the socket when we're done with it
-//   }
-// }
-
 template<typename T>
 void PriceDataConnector<T>::handle_read(const boost::system::error_code& ec, std::size_t length, boost::asio::ip::tcp::socket* socket, boost::asio::streambuf* request) {
   if (!ec) {
