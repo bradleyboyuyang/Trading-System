@@ -15,10 +15,10 @@ Communication between different components is based on socket to ensure real-tim
 
 
 ### Client-Server Pattern
-The whole system follows a client-server pattern through asynchronous I/O. The program consists of four client programs that subscribes external data and publish to TCP sockets, and a main server program running six servers simultaneously using multi-threading. Data flows into the trading system through connectors from connectivity source (e.g. a socket, database, etc).
+The whole system follows a client-server pattern through asynchronous I/O. The program consists of four client programs that subscribes external data and publish to TCP sockets, and a main server program running six servers simultaneously using multi-threading. 
 
 <img src="./imgs/clientserver.png" width="700">
-
+Data flows into the trading system through connectors from connectivity source (e.g. a socket, database, etc).
 
 ### Connector
 
