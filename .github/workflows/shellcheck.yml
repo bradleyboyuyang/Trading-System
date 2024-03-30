@@ -1,0 +1,27 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "multithread" ]
+  pull_request:
+    branches: [ "multithread" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    # run shellcheck
+    - name: ShellCheck
+      uses: ludeeus/action-shellcheck@2.0.0
+    - name: lintmarkdown
+      if: success()
+      uses: tomwhross/write-good-action@v1.6
+      with:
+        message: |
+          Finish shell checking.
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        repo-token-user-login: 'github-actions[bot]'
+        allow-repeats: false 
