@@ -7,11 +7,8 @@ cd build || exit
 # build project
 cmake ..
 
-# compile with multiple threads
-make -j8 
-
-# if build correctly
-if [ $? -eq 0 ]; then
+# if successfully compiled with multiple threads
+if make -j8; then
     # start server in background and print its output to the console
     ./server &
     server_pid=$!
