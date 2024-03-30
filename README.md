@@ -1,4 +1,6 @@
 # Trading-System
+[![C/C++ CI](https://github.com/bradleyboyuyang/Trading-System/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/bradleyboyuyang/Trading-System/actions/workflows/shellcheck.yml)
+
  An asynchronous and low-latency trading system designed under service-oriented architecture (SOA). 
 
 The project gives an example of a trading system for seven US Treasury securities, with real-time price and orderbook flows, data streaming, user inquiries, algorithm order execution, risk monitor, logging modules, etc.
