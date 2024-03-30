@@ -2,7 +2,7 @@
 
 # make and enter build directory
 mkdir -p build
-cd build
+cd build || exit
 
 # build project
 cmake ..
@@ -24,7 +24,7 @@ if [ $? -eq 0 ]; then
     ./inquiry &
     
     # trap SIGINT and terminate all processes
-    trap "kill $server_pid; pkill -P $$; exit" SIGINT
+    trap 'kill $server_pid; pkill -P $$; exit' SIGINT
 
     # you can press any key to terminate all processes
     read -p "Press any key to terminate all processes." -n 1 -r
